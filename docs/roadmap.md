@@ -6,7 +6,8 @@ next begins. Tick boxes only when done *and* the acceptance criteria hold.
 
 **Status legend:** `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-**Current position:** Phase 0 complete (2026-06-18). Next: Phase 1.
+**Current position:** Phase 1 implemented (2026-06-18) — automated checks green;
+awaiting visual/interaction sign-off. Next: Phase 2.
 
 ---
 
@@ -35,33 +36,43 @@ real `<svg>` canvas (`canvas/Canvas.ts`).
 
 ---
 
-## Phase 1 — A circuit that works · _the milestone; prioritize it_
+## Phase 1 — A circuit that works · _the milestone_ ✅ implemented
 
 Goal: place gates, wire them, flip inputs, watch outputs light up.
 
-- [ ] `core/types.ts` + `core/registry.ts` with AND/OR/NOT + input/output.
-- [ ] `core/engine.ts` — topological evaluate; unit tests green.
-- [ ] `core/model.ts` — create/mutate/validate; id generation; one-wire-per-input.
-- [ ] `core/geometry.ts` — terminal positions, wire Bézier, grid snap.
-- [ ] `store.ts` — observable state + recompute-on-change loop.
-- [ ] Palette: click a part to drop it at viewport center (drag can come later).
-- [ ] Canvas renders components + terminals from state.
-- [ ] Input rail with "+ Add input"; output rail with "+ Add output".
-- [ ] Drag-to-wire: press output terminal → Bézier preview → release on input
+- [x] `core/types.ts` + `core/registry.ts` with AND/OR/NOT + input/output.
+- [x] `core/engine.ts` — topological evaluate; 8 unit tests green.
+- [x] `core/model.ts` — create/mutate/validate; id generation; one-wire-per-input.
+- [x] `core/geometry.ts` — terminal positions, wire Bézier, grid snap.
+- [x] `store.ts` — observable state + recompute-on-change loop.
+- [x] Palette: click a part to drop it (gates at center; I/O append to rails).
+- [x] Canvas renders components + terminals from state (single model-space SVG).
+- [x] Input rail with "+ Add input"; output rail with "+ Add output" (auto-dock).
+- [x] Drag-to-wire: press output terminal → Bézier preview → release on input
       commits; release on empty discards; `Esc` cancels.
-- [ ] Toggle an input → whole circuit re-evaluates → LEDs and live wires update.
-- [ ] Move a component by its body; connected wires follow.
-- [ ] Select + `Delete` removes component/wire and attached wires.
+- [x] Toggle an input → whole circuit re-evaluates → LEDs and live wires update.
+- [x] Move a gate by its body; connected wires follow.
+- [x] Select + `Delete`/`Backspace` removes component/wire and attached wires.
 
-**DoD:** build a half-adder by hand (2 inputs, AND + XOR-via-gates or AND/OR/NOT,
-2 outputs) and it computes correctly as you flip inputs. Engine tests pass.
+**DoD:** ✅ engine-verified (the half-adder truth table is a passing test) ·
+⏳ awaiting interactive build-by-hand sign-off (needs a human at the screen).
 
-**UX acceptance (spec §2, §7):**
-- HIGH wire is unmistakably distinct from LOW (even before animation).
-- Interaction is decided by *where* you click (terminal vs. body) — no mode
-  toggle anywhere.
-- An input terminal rejects a second wire with a soft shake or last-wins, with a
-  plain message — never a silent failure or crash.
+**Verification status**
+- ✅ Automated: typecheck, lint, 8 engine tests, production build — all clean.
+- ⏳ Manual (please confirm): place AND/OR/NOT + I/O, drag wires, flip inputs,
+  watch LEDs/wires light amber; the half-adder computes; Delete + Esc behave.
+
+**UX acceptance (spec §2, §7)** — built to these; confirm visually:
+- HIGH wire/LED/terminal render amber; LOW render dim slate — clearly distinct.
+- Interaction is decided by *where* you click (terminal → wire, body → move,
+  toggle → flip) — no mode toggle anywhere.
+- An input accepts one wire (last wins): re-wiring an input drops the old wire.
+
+**Deliberately deferred (not regressions):**
+- Marquee group-select/move → Phase 4 (single-select ships now).
+- Pan/zoom + fit-to-content → Phase 4 (the board is static this phase).
+- Drag-from-palette → Phase 4 (click-to-drop ships now).
+- IEEE gate glyphs → Phase 5 (labeled angular boxes ship now).
 
 ---
 

@@ -1,16 +1,19 @@
 import "./styles/tokens.css";
 import "./styles/app.css";
+import { mountCanvas } from "./canvas/Canvas";
+import { initInteractions } from "./canvas/interactions";
+import { initPalette } from "./ui/Palette";
+import { initStatusBar } from "./ui/StatusBar";
 
 /*
- * Phase 0 — the static shell. This renders the five regions (spec §4) on-brand
- * with no behavior yet. Later phases replace these stubs with live modules
- * (Palette, Rails, Canvas, ...) driven by the store. The sample rail entries
- * exist only to showcase the amber/slate signal system; they carry no logic.
+ * Phase 1 — a circuit that works. main.ts builds the shell, mounts the canvas,
+ * and wires the palette / rails / status bar to the store. Topbar file actions
+ * are still stubs (is-stub) — they come alive in Phases 2–3.
  */
 
 interface PaletteItem {
   label: string;
-  ready?: boolean; // false/undefined → "coming in a later phase"
+  type?: string; // present → live part; absent → "coming in a later phase"
 }
 interface PaletteCategory {
   name: string;
@@ -23,9 +26,9 @@ const PALETTE: PaletteCategory[] = [
     name: "Gates",
     open: true,
     items: [
-      { label: "AND", ready: true },
-      { label: "OR", ready: true },
-      { label: "NOT", ready: true },
+      { label: "AND", type: "and" },
+      { label: "OR", type: "or" },
+      { label: "NOT", type: "not" },
       { label: "NAND" },
       { label: "NOR" },
       { label: "XOR" },
@@ -35,7 +38,7 @@ const PALETTE: PaletteCategory[] = [
   {
     name: "I/O",
     open: true,
-    items: [{ label: "Input", ready: true }, { label: "Output", ready: true }, { label: "Clock" }],
+    items: [{ label: "Input", type: "input" }, { label: "Output", type: "output" }, { label: "Clock" }],
   },
   { name: "Display", items: [{ label: "7-segment" }, { label: "Number" }] },
   {
@@ -55,11 +58,10 @@ const chevron = `<svg class="cat__chevron" width="12" height="12" viewBox="0 0 1
 
 function paletteCategory(cat: PaletteCategory): string {
   const items = cat.items
-    .map(
-      (it) =>
-        `<button class="chip${it.ready ? "" : " is-soon"}"${
-          it.ready ? "" : ' title="Coming in a later phase"'
-        }>${it.label}</button>`,
+    .map((it) =>
+      it.type
+        ? `<button class="chip" data-type="${it.type}">${it.label}</button>`
+        : `<button class="chip is-soon" title="Coming in a later phase">${it.label}</button>`,
     )
     .join("");
   return `<details class="cat"${cat.open ? " open" : ""}>
@@ -74,14 +76,14 @@ function shell(): string {
     <header class="topbar">
       <div class="brand"><span class="brand__mark">&#9671;</span> Logic Lab</div>
       <div class="topbar__group">
-        <button class="btn">New</button>
-        <button class="btn">Save</button>
-        <button class="btn">Open &#9662;</button>
-        <button class="btn">Export</button>
-        <button class="btn">Import</button>
+        <button class="btn is-stub" title="Coming in Phase 2">New</button>
+        <button class="btn is-stub" title="Coming in Phase 2">Save</button>
+        <button class="btn is-stub" title="Coming in Phase 3">Open &#9662;</button>
+        <button class="btn is-stub" title="Coming in Phase 3">Export</button>
+        <button class="btn is-stub" title="Coming in Phase 3">Import</button>
       </div>
       <div class="topbar__spacer"></div>
-      <button class="btn btn--run">&#9654; Run</button>
+      <div class="live" title="Simulation runs continuously"><span class="live__dot"></span> Live</div>
     </header>
 
     <main class="workspace">
@@ -91,34 +93,33 @@ function shell(): string {
       </aside>
 
       <section class="board-area">
-        <div class="rail rail--in" aria-label="Input rail">
-          <span class="rail__label">Inputs</span>
-          <div class="toggle is-off"><span class="toggle__track"><span class="toggle__knob"></span></span><span class="toggle__name">A</span></div>
-          <div class="toggle is-on"><span class="toggle__track"><span class="toggle__knob"></span></span><span class="toggle__name">B</span></div>
-          <button class="rail__add">+ Add input</button>
+        <div class="rail-band rail-band--in" aria-label="Input rail">
+          <span class="rail-band__label">Inputs</span>
+          <button class="rail-band__add" data-type="input">+ Add input</button>
         </div>
 
-        <div class="board">
+        <div class="board-center">
           <div class="empty-state">
             <div class="empty-state__mark">&#9671;</div>
             <div class="empty-state__line">A blank board, ready for a circuit.</div>
-            <div class="empty-state__hint">Drag a gate from the left, or add an input to begin.</div>
+            <div class="empty-state__hint">
+              Click a gate on the left to drop it, or add an input. Drag from an
+              output terminal to an input terminal to wire them up.
+            </div>
           </div>
         </div>
 
-        <div class="rail rail--out" aria-label="Output rail">
-          <span class="rail__label">Outputs</span>
-          <div class="led is-on"><span class="led__lamp"></span><span class="led__name">OUT 0</span></div>
-          <div class="led is-off"><span class="led__lamp"></span><span class="led__name">OUT 1</span></div>
-          <button class="rail__add">+ Add output</button>
+        <div class="rail-band rail-band--out" aria-label="Output rail">
+          <span class="rail-band__label">Outputs</span>
+          <button class="rail-band__add" data-type="output">+ Add output</button>
         </div>
       </section>
     </main>
 
     <footer class="statusbar">
-      <span>0 components<span class="dot">&middot;</span>0 wires</span>
+      <span id="sb-count">0 components · 0 wires</span>
       <div class="statusbar__spacer"></div>
-      <span>zoom 100%<span class="dot">&middot;</span>not yet saved</span>
+      <span id="sb-meta">zoom 100% · not saved yet</span>
     </footer>
   </div>`;
 }
@@ -126,3 +127,9 @@ function shell(): string {
 const root = document.getElementById("app");
 if (!root) throw new Error("Logic Lab: #app root element not found");
 root.innerHTML = shell();
+
+const boardArea = root.querySelector<HTMLElement>(".board-area")!;
+mountCanvas(boardArea);
+const status = initStatusBar();
+initInteractions(status.setMessage);
+initPalette();
