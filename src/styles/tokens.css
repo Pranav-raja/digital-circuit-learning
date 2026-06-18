@@ -1,0 +1,70 @@
+/*
+ * tokens.css — the design system (spec §5).
+ * A modern lab instrument laid over an engineer's blueprint: cool, technical,
+ * calm — until a signal turns on, and then it glows.
+ * Every value the rest of the app reads lives here as a custom property.
+ */
+
+:root {
+  /* ---- Color: dark theme (default) ---- */
+  --bg-board: #0e1726; /* deep blueprint indigo — the canvas */
+  --bg-chrome: #111c2e; /* lifted panels, topbar, rails */
+  --ink: #c7d2e0; /* primary text / component outlines */
+  --signal-high: #ffb454; /* logic 1 — warm amber, a glowing filament */
+  --signal-low: #3a4a63; /* logic 0 — dim cool slate, clearly off */
+  --accent: #22d3ee; /* electric cyan — interaction only (cyan = me) */
+
+  /* ---- Derived neutrals ---- */
+  --ink-dim: #7e8ca3; /* muted labels, secondary text */
+  --hairline: #243047; /* 1px panel separators */
+  --chrome-hover: #18243a; /* hover wash on chrome controls */
+  --grid-fine: rgba(58, 74, 99, 0.22); /* 24px blueprint lines */
+  --grid-coarse: rgba(58, 74, 99, 0.38); /* major blueprint lines */
+  --signal-high-glow: rgba(255, 180, 84, 0.45);
+
+  /* ---- Typography ---- */
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2rem;
+
+  --tracking-mono: 0.04em; /* generous spacing on small mono labels */
+
+  /* ---- Spacing: 8px chrome grid ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* ---- Shape ---- */
+  --radius-panel: 6px; /* chrome is rounded; gates stay sharp (set per-part) */
+  --canvas-grid: 24px; /* components snap to this in later phases */
+
+  /* ---- Motion ---- */
+  --t-fast: 120ms; /* state changes feel instant, not jarring */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- Color: light theme (spec §5; wired to a toggle in Phase 4) ---- */
+:root[data-theme="light"] {
+  --bg-board: #f2f4f8; /* soft paper */
+  --bg-chrome: #ffffff;
+  --ink: #1e2a3d;
+  --signal-high: #ffb454; /* amber stays amber */
+  --signal-low: #9aa7bd;
+  --accent: #0e9bb5; /* darker cyan keeps contrast on paper */
+  --ink-dim: #5a6b85;
+  --hairline: #d5dce7;
+  --chrome-hover: #eef1f6;
+  --grid-fine: rgba(154, 167, 189, 0.3);
+  --grid-coarse: rgba(154, 167, 189, 0.5);
+  --signal-high-glow: rgba(255, 180, 84, 0.5);
+}

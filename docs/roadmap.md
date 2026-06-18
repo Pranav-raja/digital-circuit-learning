@@ -6,25 +6,32 @@ next begins. Tick boxes only when done *and* the acceptance criteria hold.
 
 **Status legend:** `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-**Current position:** pre–Phase 0. Planning docs complete; no code yet.
+**Current position:** Phase 0 complete (2026-06-18). Next: Phase 1.
 
 ---
 
-## Phase 0 — Scaffold · _empty but on-brand_
+## Phase 0 — Scaffold · _empty but on-brand_ ✅ done
 
 Goal: a runnable shell that already *looks* like Logic Lab.
 
-- [ ] `npm create vite` (vanilla-ts), strip the demo, commit a clean baseline.
-- [ ] `tsconfig` with `strict: true`; ESLint + Prettier wired.
-- [ ] `styles/tokens.css` — every §5 color/type/spacing custom property.
-- [ ] `styles/app.css` — three-zone layout: topbar, palette drawer, input rail,
+- [x] Vite + TypeScript project scaffolded by hand (clean baseline, no demo cruft).
+- [x] `tsconfig` with `strict: true`; ESLint (flat) + Prettier wired. Lint clean.
+- [x] `styles/tokens.css` — every §5 color/type/spacing custom property (+ light theme block).
+- [x] `styles/app.css` — three-zone layout: topbar, palette drawer, input rail,
       center board, output rail, status bar (static, no behavior).
-- [ ] Blueprint-grid canvas background; Space Grotesk / Inter / JetBrains Mono
-      loaded.
-- [ ] Empty-state invitation on the board (spec §13).
+- [x] Blueprint-grid canvas background (fine 24px + coarse 120px); Space Grotesk /
+      Inter / JetBrains Mono loaded via Google Fonts.
+- [x] Empty-state invitation on the board (spec §13).
 
-**DoD:** `npm run dev` shows the full shell, on-brand, no console errors. Dark
-theme by default. Nothing interactive yet — and that's correct.
+**DoD:** ✅ `npm run typecheck`, `npm run lint`, and `npm run build` all clean;
+`npm run dev` serves the full shell, on-brand, dark theme by default. Sample rail
+toggles/LEDs showcase the amber/slate signal system. Nothing interactive yet —
+and that's correct.
+
+**Notes for Phase 1.** The palette categories, rail entries, and `▶ Run` button
+are static stubs in `src/main.ts`; they get replaced by live, store-driven
+modules. The center `.board` is a CSS-grid div for now — Phase 1 introduces the
+real `<svg>` canvas (`canvas/Canvas.ts`).
 
 ---
 

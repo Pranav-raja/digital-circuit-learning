@@ -34,5 +34,15 @@ is negotiable; this is not.
 ## Status at a glance
 
 - **Decided:** stack (Vite + TypeScript + hand-rolled SVG), name (Logic Lab).
-- **Current phase:** pre–Phase 0. Planning docs complete; no code written yet.
-- **Next:** Phase 0 scaffold (Vite project + three-zone layout + design tokens).
+- **Current phase:** Phase 0 complete — runnable on-brand shell (`npm run dev`).
+  typecheck / lint / build all clean.
+- **Next:** Phase 1 — a circuit that works (registry, engine, drag-to-wire, live sim).
+
+## Running it
+
+```
+npm install      # already done
+npm run dev      # http://localhost:5173 — the shell
+npm run build    # typecheck + production build
+npm run lint     # eslint (flat config)
+```
