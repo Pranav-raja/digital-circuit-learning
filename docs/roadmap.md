@@ -6,8 +6,8 @@ next begins. Tick boxes only when done *and* the acceptance criteria hold.
 
 **Status legend:** `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-**Current position:** Phase 1 implemented (2026-06-18) — automated checks green;
-awaiting visual/interaction sign-off. Next: Phase 2.
+**Current position:** Phase 2 implemented (2026-06-18) — automated checks green;
+awaiting visual/interaction sign-off. Next: Phase 3.
 
 ---
 
@@ -76,18 +76,29 @@ Goal: place gates, wire them, flip inputs, watch outputs light up.
 
 ---
 
-## Phase 2 — Don't-lose-my-work
+## Phase 2 — Don't-lose-my-work ✅ implemented
 
-- [ ] `storage/local.ts` — autosave debounced ~800ms → `logiclab:current`.
-- [ ] On load, restore the autosaved circuit.
-- [ ] Status-bar heartbeat ("saved 12s ago"), driven by `savedAt`.
-- [ ] Undo/redo stack (`Ctrl/Cmd+Z`, redo) over circuit mutations.
+- [x] `storage/local.ts` — autosave debounced ~800ms → `logiclab:current`;
+      skips redundant writes by comparing `updatedAt`; graceful quota message.
+- [x] On load, restore the autosaved circuit (`loadCurrent` → `loadCircuit`).
+- [x] Status-bar heartbeat ("saved 12s ago"), ticking every second.
+- [x] Undo/redo over circuit mutations (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` / `Ctrl+Y`),
+      snapshot history; one entry per drag gesture; `Ctrl/Cmd+S` forces a save.
 
-**DoD:** make changes, reload the tab → work returns. Every destructive action
-(delete, clear) is undoable. Heartbeat reflects real save times.
+**DoD:** ✅ logic in place + tests green · ⏳ awaiting reload/undo sign-off.
+
+**Verification status**
+- ✅ Automated: typecheck, lint, 14 tests (engine + model round-trip), build — clean.
+- ⏳ Manual (please confirm): make changes → reload tab → work returns; heartbeat
+  shows "saved …"; `Ctrl+Z` undoes add/delete/move/toggle/wire; redo restores.
 
 **UX acceptance:** losing work is "nearly impossible" (rule #4) and *visibly* so
 — the heartbeat is the proof.
+
+**Design notes / deferred:**
+- "New" + named-save buttons stay stubbed until Phase 3 (named "My Circuits").
+- Undo coalesces a whole drag into one step (checkpoint on first move).
+- History cap: 100 snapshots (structuredClone); fine at v1 circuit sizes.
 
 ---
 

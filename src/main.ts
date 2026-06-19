@@ -4,6 +4,8 @@ import { mountCanvas } from "./canvas/Canvas";
 import { initInteractions } from "./canvas/interactions";
 import { initPalette } from "./ui/Palette";
 import { initStatusBar } from "./ui/StatusBar";
+import { getState, subscribe, loadCircuit } from "./store";
+import { createAutosaver, loadCurrent } from "./storage/local";
 
 /*
  * Phase 1 — a circuit that works. main.ts builds the shell, mounts the canvas,
@@ -133,3 +135,18 @@ mountCanvas(boardArea);
 const status = initStatusBar();
 initInteractions(status.setMessage);
 initPalette();
+
+// Phase 2 — don't-lose-my-work: autosave on every change, restore on load.
+const autosaver = createAutosaver({ onSaved: status.setSaved, onError: status.setMessage });
+subscribe(() => autosaver.schedule(getState().circuit));
+
+const restored = loadCurrent();
+if (restored) loadCircuit(restored);
+
+// Ctrl/Cmd+S forces an immediate save (spec §7).
+window.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    autosaver.flush(getState().circuit);
+  }
+});

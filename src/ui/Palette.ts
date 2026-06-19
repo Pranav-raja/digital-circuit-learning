@@ -8,15 +8,17 @@
 import { REGISTRY } from "../core/registry";
 import { sizeOf } from "../core/geometry";
 import { addComponent, addInput, addOutput } from "../core/model";
-import { update } from "../store";
+import { update, checkpoint } from "../store";
 import { centerPoint } from "../canvas/Canvas";
 
 function addPart(type: string): void {
   if (type === "input") {
+    checkpoint();
     update((c) => addInput(c));
     return;
   }
   if (type === "output") {
+    checkpoint();
     update((c) => addOutput(c));
     return;
   }
@@ -24,6 +26,7 @@ function addPart(type: string): void {
   if (!def) return;
   const { w, h } = sizeOf(def);
   const ctr = centerPoint();
+  checkpoint();
   update((c) => addComponent(c, type, ctr.x - w / 2, ctr.y - h / 2));
 }
 

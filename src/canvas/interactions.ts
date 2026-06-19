@@ -12,13 +12,13 @@ import type { TerminalRef } from "../core/types";
 import { REGISTRY } from "../core/registry";
 import { terminalPos, wirePath } from "../core/geometry";
 import { addWire, moveComponent, toggleInput, removeById } from "../core/model";
-import { getState, update, select } from "../store";
+import { getState, update, select, checkpoint, undo, redo } from "../store";
 import { getSvg, clientToModel } from "./Canvas";
 
 type Drag =
   | { kind: "none" }
   | { kind: "wire"; from: TerminalRef }
-  | { kind: "move"; id: string; offX: number; offY: number; moved: boolean }
+  | { kind: "move"; id: string; offX: number; offY: number; moved: boolean; checkpointed: boolean }
   | { kind: "press"; id: string; sx: number; sy: number }; // railed part: maybe a toggle click
 
 let drag: Drag = { kind: "none" };
@@ -74,7 +74,14 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
         drag = { kind: "press", id, sx: e.clientX, sy: e.clientY }; // railed: don't free-move
       } else {
         const pt = clientToModel(e.clientX, e.clientY);
-        drag = { kind: "move", id, offX: pt.x - comp.x, offY: pt.y - comp.y, moved: false };
+        drag = {
+          kind: "move",
+          id,
+          offX: pt.x - comp.x,
+          offY: pt.y - comp.y,
+          moved: false,
+          checkpointed: false,
+        };
         svg.setPointerCapture(e.pointerId);
       }
       return;
@@ -94,6 +101,10 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
     if (d.kind === "wire") {
       drawPreview(e.clientX, e.clientY);
     } else if (d.kind === "move") {
+      if (!d.checkpointed) {
+        checkpoint(); // one undo entry per drag gesture, captured before the first move
+        d.checkpointed = true;
+      }
       const pt = clientToModel(e.clientX, e.clientY);
       update((c) => moveComponent(c, d.id, pt.x - d.offX, pt.y - d.offY));
       d.moved = true;
@@ -109,6 +120,7 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
       const target = el?.closest<SVGElement>(".term");
       if (target?.dataset.dir === "in") {
         const to: TerminalRef = { comp: target.dataset.comp!, term: target.dataset.term! };
+        checkpoint();
         const res = update((c) => addWire(c, from, to));
         if (!res.ok) setMessage(res.reason);
       }
@@ -116,7 +128,10 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
     } else if (d.kind === "press") {
       const comp = getState().circuit.components.find((c) => c.id === d.id);
       const moved = Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 4;
-      if (comp?.type === "input" && !moved) update((c) => toggleInput(c, d.id));
+      if (comp?.type === "input" && !moved) {
+        checkpoint();
+        update((c) => toggleInput(c, d.id));
+      }
     }
     drag = { kind: "none" };
     try {
@@ -130,12 +145,26 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
     const tag = (document.activeElement?.tagName ?? "").toLowerCase();
     if (tag === "input" || tag === "textarea") return;
 
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (mod && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      redo();
+      return;
+    }
+
     if (e.key === "Escape") {
       if (drag.kind === "wire") cancelWire();
     } else if (e.key === "Delete" || e.key === "Backspace") {
       const sel = [...getState().selection];
       if (sel.length) {
         e.preventDefault();
+        checkpoint();
         update((c) => {
           for (const id of sel) removeById(c, id);
         });

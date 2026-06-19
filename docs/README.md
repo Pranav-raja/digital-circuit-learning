@@ -34,10 +34,10 @@ is negotiable; this is not.
 ## Status at a glance
 
 - **Decided:** stack (Vite + TypeScript + hand-rolled SVG), name (Logic Lab).
-- **Current phase:** Phase 1 implemented — a working combinational simulator
-  (registry, pure engine, drag-to-wire, live sim). typecheck / lint / 8 engine
-  tests / build all clean; awaiting visual sign-off.
-- **Next:** Phase 2 — autosave to localStorage, undo/redo, status heartbeat.
+- **Current phase:** Phase 2 implemented — working simulator + autosave/restore,
+  undo/redo, and the autosave heartbeat. typecheck / lint / 14 tests / build all
+  clean; awaiting visual sign-off.
+- **Next:** Phase 3 — export/import `.json`, named "My Circuits" saves.
 
 ## Running it
 
