@@ -1,41 +1,43 @@
 /*
- * canvas/interactions.ts — drag-to-wire, move, toggle, select, delete (spec §7).
- * Interaction is decided by WHAT you click, never a global mode (rule #3):
- *   • press an output terminal → draw a wire (live Bézier preview)
- *   • press a gate body         → move it (connected wires follow)
- *   • click an input toggle      → flip its value
- *   • click a wire / empty       → select / deselect
+ * canvas/interactions.ts — drag-to-wire, move, toggle, select, delete, pan/zoom
+ * (spec §7). Interaction is decided by WHAT you click, never a global mode (rule
+ * #3): output terminal → wire, gate body → move, input → toggle, wire/empty →
+ * select/deselect. Space-drag or middle-mouse pans; scroll zooms toward the cursor.
  * Listeners are delegated on the single SVG, so they survive full re-renders.
  */
 
 import type { TerminalRef } from "../core/types";
-import { REGISTRY } from "../core/registry";
-import { terminalPos, wirePath } from "../core/geometry";
+import { wirePath } from "../core/geometry";
 import { addWire, moveComponent, toggleInput, removeById } from "../core/model";
 import { getState, update, select, checkpoint, undo, redo } from "../store";
-import { getSvg, clientToModel } from "./Canvas";
+import {
+  getSvg,
+  clientToScreen,
+  clientToWorld,
+  terminalScreen,
+  panBy,
+  zoomAt,
+} from "./Canvas";
 
 type Drag =
   | { kind: "none" }
   | { kind: "wire"; from: TerminalRef }
   | { kind: "move"; id: string; offX: number; offY: number; moved: boolean; checkpointed: boolean }
-  | { kind: "press"; id: string; sx: number; sy: number }; // railed part: maybe a toggle click
+  | { kind: "press"; id: string; sx: number; sy: number } // railed part: maybe a toggle click
+  | { kind: "pan"; lastX: number; lastY: number };
 
 let drag: Drag = { kind: "none" };
+let spaceHeld = false;
 
-const preview = (): SVGPathElement | null =>
-  getSvg().querySelector<SVGPathElement>("#wire-preview");
+const preview = (): SVGPathElement | null => getSvg().querySelector<SVGPathElement>("#wire-preview");
 
 function drawPreview(clientX: number, clientY: number): void {
   const d = drag; // snapshot: narrowing survives the calls below
   if (d.kind !== "wire") return;
   const p = preview();
-  const comp = getState().circuit.components.find((c) => c.id === d.from.comp);
-  const def = comp && REGISTRY[comp.type];
-  if (!p || !comp || !def) return;
-  const p0 = terminalPos(comp, def, d.from.term);
-  const pt = clientToModel(clientX, clientY);
-  p.setAttribute("d", wirePath(p0, pt));
+  const p0 = terminalScreen(d.from);
+  if (!p || !p0) return;
+  p.setAttribute("d", wirePath(p0, clientToScreen(clientX, clientY)));
 }
 
 function clearPreview(): void {
@@ -52,6 +54,15 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
   const svg = getSvg();
 
   svg.addEventListener("pointerdown", (e) => {
+    // Pan first: middle-mouse, or space + left-drag (rule #3 — a held modifier, not a mode).
+    if (e.button === 1 || (spaceHeld && e.button === 0)) {
+      drag = { kind: "pan", lastX: e.clientX, lastY: e.clientY };
+      svg.classList.add("is-panning");
+      svg.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+
     const t = e.target as Element;
 
     const term = t.closest<SVGElement>(".term");
@@ -73,7 +84,7 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
       if (comp.type === "input" || comp.type === "output") {
         drag = { kind: "press", id, sx: e.clientX, sy: e.clientY }; // railed: don't free-move
       } else {
-        const pt = clientToModel(e.clientX, e.clientY);
+        const pt = clientToWorld(e.clientX, e.clientY);
         drag = {
           kind: "move",
           id,
@@ -105,9 +116,13 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
         checkpoint(); // one undo entry per drag gesture, captured before the first move
         d.checkpointed = true;
       }
-      const pt = clientToModel(e.clientX, e.clientY);
+      const pt = clientToWorld(e.clientX, e.clientY);
       update((c) => moveComponent(c, d.id, pt.x - d.offX, pt.y - d.offY));
       d.moved = true;
+    } else if (d.kind === "pan") {
+      panBy(e.clientX - d.lastX, e.clientY - d.lastY);
+      d.lastX = e.clientX;
+      d.lastY = e.clientY;
     }
   });
 
@@ -132,6 +147,8 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
         checkpoint();
         update((c) => toggleInput(c, d.id));
       }
+    } else if (d.kind === "pan") {
+      svg.classList.remove("is-panning");
     }
     drag = { kind: "none" };
     try {
@@ -141,9 +158,26 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
     }
   });
 
+  // scroll = zoom toward the cursor (spec §7)
+  svg.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 1 / 1.1);
+    },
+    { passive: false },
+  );
+
   window.addEventListener("keydown", (e) => {
     const tag = (document.activeElement?.tagName ?? "").toLowerCase();
     if (tag === "input" || tag === "textarea") return;
+
+    if (e.key === " ") {
+      spaceHeld = true;
+      svg.classList.add("is-pan-ready");
+      if (document.activeElement === document.body) e.preventDefault();
+      return;
+    }
 
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "z") {
@@ -155,6 +189,12 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
     if (mod && e.key.toLowerCase() === "y") {
       e.preventDefault();
       redo();
+      return;
+    }
+    if (mod && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      const { circuit } = getState();
+      select([...circuit.components.map((c) => c.id), ...circuit.wires.map((w) => w.id)]);
       return;
     }
 
@@ -170,6 +210,13 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
         });
         select([]);
       }
+    }
+  });
+
+  window.addEventListener("keyup", (e) => {
+    if (e.key === " ") {
+      spaceHeld = false;
+      svg.classList.remove("is-pan-ready");
     }
   });
 }

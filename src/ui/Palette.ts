@@ -9,7 +9,7 @@ import { REGISTRY } from "../core/registry";
 import { sizeOf } from "../core/geometry";
 import { addComponent, addInput, addOutput } from "../core/model";
 import { update, checkpoint } from "../store";
-import { centerPoint } from "../canvas/Canvas";
+import { centerWorld } from "../canvas/Canvas";
 
 function addPart(type: string): void {
   if (type === "input") {
@@ -25,7 +25,7 @@ function addPart(type: string): void {
   const def = REGISTRY[type];
   if (!def) return;
   const { w, h } = sizeOf(def);
-  const ctr = centerPoint();
+  const ctr = centerWorld();
   checkpoint();
   update((c) => addComponent(c, type, ctr.x - w / 2, ctr.y - h / 2));
 }

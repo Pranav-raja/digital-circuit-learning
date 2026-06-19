@@ -9,6 +9,7 @@ import { getState, subscribe } from "../store";
 export interface StatusBar {
   setMessage: (msg: string) => void;
   setSaved: (ts: number) => void;
+  setZoom: (zoom: number) => void;
 }
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -25,6 +26,7 @@ function ago(ts: number): string {
 export function initStatusBar(): StatusBar {
   const countEl = document.getElementById("sb-count")!;
   const metaEl = document.getElementById("sb-meta")!;
+  const zoomEl = document.getElementById("sb-zoom")!;
   let messageTimer: number | undefined;
   let savedAt: number | null = null;
 
@@ -37,7 +39,7 @@ export function initStatusBar(): StatusBar {
   };
 
   const renderMeta = (): void => {
-    metaEl.textContent = `zoom 100% · ${savedAt === null ? "not saved yet" : ago(savedAt)}`;
+    metaEl.textContent = savedAt === null ? "not saved yet" : ago(savedAt);
   };
 
   // While a message is showing, leave the count be; it refreshes when the message clears.
@@ -60,6 +62,9 @@ export function initStatusBar(): StatusBar {
     setSaved(ts: number) {
       savedAt = ts;
       renderMeta();
+    },
+    setZoom(zoom: number) {
+      zoomEl.textContent = `${Math.round(zoom * 100)}%`;
     },
   };
 }

@@ -103,6 +103,11 @@ body {
 .btn.is-stub:hover {
   background: transparent;
 }
+.btn--icon {
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-md);
+  line-height: 1;
+}
 
 /* Open ▾ dropdown — the "My Circuits" list */
 .menu-anchor {
@@ -436,11 +441,17 @@ body {
   stroke: var(--signal-low);
   stroke-width: 2;
   stroke-linecap: round;
+  cursor: pointer;
   transition: stroke var(--t-fast) var(--ease);
+}
+.wire:hover {
+  stroke: var(--accent);
 }
 .wire.is-high {
   stroke: var(--signal-high);
   stroke-width: 2.5;
+  /* static glow — the "alive" look that also serves as the reduced-motion fallback */
+  filter: drop-shadow(0 0 3px var(--signal-high-glow));
 }
 .wire.is-cycle {
   stroke: #ff6b6b;
@@ -454,6 +465,32 @@ body {
   stroke-width: 2;
   stroke-dasharray: 6 5;
   pointer-events: none;
+}
+
+/* the signature element (spec §5): a slow pulse travels output → input on live
+ * wires. A second overlaid stroke whose dash offset animates left-to-right. */
+.wire-pulse {
+  fill: none;
+  stroke: var(--signal-high);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 5 16;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: signal-flow 1.8s linear infinite;
+}
+@keyframes signal-flow {
+  to {
+    stroke-dashoffset: -21;
+  }
+}
+
+/* pan affordance: grab cursor while Space is held, grabbing while panning */
+.canvas.is-pan-ready {
+  cursor: grab;
+}
+.canvas.is-panning {
+  cursor: grabbing;
 }
 
 .term {
@@ -568,6 +605,31 @@ body {
 .statusbar__spacer {
   flex: 1;
 }
+.statusbar__sep {
+  opacity: 0.5;
+}
+.statusbar__btn {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+  padding: 1px var(--sp-2);
+  cursor: pointer;
+  transition:
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.statusbar__btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.statusbar__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
 /* accessibility: respect reduced motion everywhere (spec §13) */
 @media (prefers-reduced-motion: reduce) {
@@ -576,5 +638,9 @@ body {
   *::after {
     transition-duration: 0.001ms !important;
     animation-duration: 0.001ms !important;
+  }
+  /* drop the traveling pulse; the static glow on .wire.is-high stays */
+  .wire-pulse {
+    display: none;
   }
 }

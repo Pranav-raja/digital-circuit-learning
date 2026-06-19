@@ -1,9 +1,9 @@
 /*
  * canvas/Canvas.ts — renders the board to SVG (architecture §1, spec §4).
- * One SVG in model coordinates (1 unit = 1px in Phase 1; pan/zoom is a single
- * transform added in Phase 4). Input components auto-dock to the left rail,
- * outputs to the right, gates float on the grid. Re-renders on every store change;
- * interactions.ts attaches delegated listeners to the same SVG.
+ * Phase 4 adds a viewport: gates + wires live in a pan/zoom WORLD layer; inputs
+ * and outputs stay PINNED to their screen-space rails (spec §4 UX note). Wires are
+ * drawn in screen space so they bridge the two cleanly. HIGH wires carry a slow
+ * traveling pulse — the signature "signal is the star" element (spec §5).
  */
 
 import type { Circuit, ComponentInstance, TerminalRef } from "../core/types";
@@ -15,18 +15,32 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const RAIL_PAD = 16;
 const RAIL_TOP = 64;
 const RAIL_ROW = 52;
+const ZOOM_MIN = 0.3;
+const ZOOM_MAX = 2.5;
+
+interface View {
+  panX: number;
+  panY: number;
+  zoom: number;
+}
 
 let svg: SVGSVGElement;
+let centerEl: HTMLElement | null;
 let emptyEl: HTMLElement | null;
+let view: View = { panX: 0, panY: 0, zoom: 1 };
+let viewListener: (zoom: number) => void = () => {};
 
+const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
 const esc = (s: string): string =>
   s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);
+const isPinned = (c: ComponentInstance): boolean => c.type === "input" || c.type === "output";
 
 // ---- public API ------------------------------------------------------------
 export function mountCanvas(container: HTMLElement): void {
   svg = document.createElementNS(SVG_NS, "svg");
   svg.classList.add("canvas");
   container.appendChild(svg);
+  centerEl = container.querySelector(".board-center");
   emptyEl = container.querySelector(".empty-state");
 
   new ResizeObserver(render).observe(svg);
@@ -35,21 +49,95 @@ export function mountCanvas(container: HTMLElement): void {
 }
 
 export const getSvg = (): SVGSVGElement => svg;
+export const getZoom = (): number => view.zoom;
 
-/** Screen (client) point → model coordinates. Identity offset in Phase 1. */
-export function clientToModel(clientX: number, clientY: number): Pt {
+/** Register a callback fired whenever the zoom changes (drives the status bar). */
+export function setViewListener(fn: (zoom: number) => void): void {
+  viewListener = fn;
+  fn(view.zoom);
+}
+
+// ---- coordinate transforms -------------------------------------------------
+const toScreen = (p: Pt): Pt => ({ x: view.panX + p.x * view.zoom, y: view.panY + p.y * view.zoom });
+
+export function clientToScreen(clientX: number, clientY: number): Pt {
   const r = svg.getBoundingClientRect();
   return { x: clientX - r.left, y: clientY - r.top };
 }
-
-/** Model coordinates of the board's visual center (for "drop at center"). */
-export function centerPoint(): Pt {
+export function clientToWorld(clientX: number, clientY: number): Pt {
+  const s = clientToScreen(clientX, clientY);
+  return { x: (s.x - view.panX) / view.zoom, y: (s.y - view.panY) / view.zoom };
+}
+/** World point at the viewport center — where "drop at center" lands a gate. */
+export function centerWorld(): Pt {
   const r = svg.getBoundingClientRect();
-  return { x: r.width / 2, y: r.height / 2 };
+  return clientToWorld(r.left + r.width / 2, r.top + r.height / 2);
+}
+
+/** Screen position of a terminal — pinned parts as-is, world parts transformed. */
+export function terminalScreen(ref: TerminalRef): Pt | null {
+  const c = getState().circuit.components.find((x) => x.id === ref.comp);
+  const def = c && REGISTRY[c.type];
+  if (!c || !def) return null;
+  const local = terminalPos(c, def, ref.term);
+  return isPinned(c) ? local : toScreen(local);
+}
+
+// ---- pan / zoom / fit ------------------------------------------------------
+function commitView(): void {
+  render();
+  viewListener(view.zoom);
+}
+
+export function panBy(dx: number, dy: number): void {
+  view.panX += dx;
+  view.panY += dy;
+  commitView();
+}
+
+export function zoomAt(clientX: number, clientY: number, factor: number): void {
+  const before = clientToWorld(clientX, clientY);
+  view.zoom = clamp(view.zoom * factor, ZOOM_MIN, ZOOM_MAX);
+  const s = clientToScreen(clientX, clientY);
+  view.panX = s.x - before.x * view.zoom;
+  view.panY = s.y - before.y * view.zoom;
+  commitView();
+}
+
+/** Frame all gates in the viewport (spec §7 "fit to content"). */
+export function fitToContent(): void {
+  const gates = getState().circuit.components.filter((c) => !isPinned(c) && REGISTRY[c.type]);
+  const r = svg.getBoundingClientRect();
+  if (!gates.length) {
+    view = { panX: 0, panY: 0, zoom: 1 };
+    commitView();
+    return;
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const c of gates) {
+    const { w, h } = sizeOf(REGISTRY[c.type]);
+    minX = Math.min(minX, c.x);
+    minY = Math.min(minY, c.y);
+    maxX = Math.max(maxX, c.x + w);
+    maxY = Math.max(maxY, c.y + h);
+  }
+  const pad = 100;
+  const zoom = clamp(
+    Math.min(r.width / (maxX - minX + pad), r.height / (maxY - minY + pad)),
+    ZOOM_MIN,
+    ZOOM_MAX,
+  );
+  view.zoom = zoom;
+  view.panX = r.width / 2 - ((minX + maxX) / 2) * zoom;
+  view.panY = r.height / 2 - ((minY + maxY) / 2) * zoom;
+  commitView();
 }
 
 // ---- layout ----------------------------------------------------------------
-/** Dock inputs to the left rail and outputs to the right; gates keep their x,y. */
+/** Dock inputs to the left rail and outputs to the right (screen space, pinned). */
 function layoutRails(circuit: Circuit, boardW: number): void {
   const outW = sizeOf(REGISTRY.output).w;
   let nIn = 0;
@@ -66,12 +154,6 @@ function layoutRails(circuit: Circuit, boardW: number): void {
 }
 
 // ---- rendering -------------------------------------------------------------
-const termPos = (circuit: Circuit, ref: TerminalRef): Pt | null => {
-  const c = circuit.components.find((x) => x.id === ref.comp);
-  const def = c && REGISTRY[c.type];
-  return c && def ? terminalPos(c, def, ref.term) : null;
-};
-
 function termCircle(
   c: ComponentInstance,
   def: ComponentDef,
@@ -114,7 +196,7 @@ function renderComponent(
     </g>`;
   }
 
-  // gate / block
+  // gate / block (world layer)
   const terms =
     def.inputs.map((t) => termCircle(c, def, t, "in", false)).join("") +
     def.outputs.map((t) => termCircle(c, def, t, "out", outVals[t] === 1)).join("");
@@ -125,42 +207,55 @@ function renderComponent(
   </g>`;
 }
 
+function updateGrid(): void {
+  if (!centerEl) return;
+  const fine = 24 * view.zoom;
+  const coarse = 120 * view.zoom;
+  centerEl.style.backgroundPosition = `${view.panX}px ${view.panY}px`;
+  centerEl.style.backgroundSize = `${coarse}px ${coarse}px, ${coarse}px ${coarse}px, ${fine}px ${fine}px, ${fine}px ${fine}px`;
+}
+
 function render(): void {
   const { circuit, sim, selection } = getState();
   const boardW = svg.clientWidth || 960;
   layoutRails(circuit, boardW);
+  updateGrid();
 
   const wires = circuit.wires
     .map((w) => {
-      const p0 = termPos(circuit, w.from);
-      const p3 = termPos(circuit, w.to);
+      const p0 = terminalScreen(w.from);
+      const p3 = terminalScreen(w.to);
       if (!p0 || !p3) return "";
+      const high = sim.wireValues.get(w.id) === 1;
       const cls = [
         "wire",
-        sim.wireValues.get(w.id) === 1 ? "is-high" : "",
+        high ? "is-high" : "",
         sim.errors.cycleWireIds.includes(w.id) ? "is-cycle" : "",
         selection.has(w.id) ? "is-selected" : "",
       ]
         .filter(Boolean)
         .join(" ");
-      return `<path class="${cls}" data-id="${w.id}" d="${wirePath(p0, p3)}" />`;
+      const d = wirePath(p0, p3);
+      // A second overlaid stroke carries the traveling pulse on live wires.
+      const pulse = high ? `<path class="wire-pulse" d="${d}" />` : "";
+      return `<path class="${cls}" data-id="${w.id}" d="${d}" />${pulse}`;
     })
     .join("");
 
-  const comps = circuit.components
-    .map((c) => {
-      const def = REGISTRY[c.type];
-      if (!def) return "";
-      return renderComponent(
-        c,
-        def,
-        selection.has(c.id),
-        sim.outputs.get(c.id) ?? {},
-        sim.inputsOf.get(c.id) ?? {},
-      );
-    })
-    .join("");
+  const part = (c: ComponentInstance): string => {
+    const def = REGISTRY[c.type];
+    return def
+      ? renderComponent(c, def, selection.has(c.id), sim.outputs.get(c.id) ?? {}, sim.inputsOf.get(c.id) ?? {})
+      : "";
+  };
+  const gates = circuit.components.filter((c) => !isPinned(c)).map(part).join("");
+  const pins = circuit.components.filter(isPinned).map(part).join("");
 
-  svg.innerHTML = `${wires}${comps}<path id="wire-preview" class="wire wire--preview" d="" />`;
+  svg.innerHTML =
+    `<g class="layer-wires">${wires}</g>` +
+    `<g class="layer-world" transform="translate(${view.panX} ${view.panY}) scale(${view.zoom})">${gates}</g>` +
+    `<g class="layer-pins">${pins}</g>` +
+    `<path id="wire-preview" class="wire wire--preview" d="" />`;
+
   if (emptyEl) emptyEl.style.display = circuit.components.length ? "none" : "";
 }

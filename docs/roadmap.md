@@ -6,8 +6,8 @@ next begins. Tick boxes only when done *and* the acceptance criteria hold.
 
 **Status legend:** `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-**Current position:** Phase 3 implemented (2026-06-19) — automated checks green;
-awaiting visual/interaction sign-off. Next: Phase 4.
+**Current position:** Phase 4 implemented (2026-06-19) — automated checks green;
+awaiting visual/interaction sign-off. Next: Phase 5.
 
 ---
 
@@ -129,18 +129,32 @@ Goal: place gates, wire them, flip inputs, watch outputs light up.
 
 ---
 
-## Phase 4 — Polish the feel
+## Phase 4 — Polish the feel ✅ implemented
 
-- [ ] Signal-flow animation on HIGH wires (traveling pulse, ~2s, low opacity).
-- [ ] `prefers-reduced-motion` → static glow fallback.
-- [ ] Hover/selection states; cyan focus rings everywhere (rule #5, §13).
-- [ ] Pan (space-drag / middle-mouse) + zoom-toward-cursor (scroll).
-- [ ] "Fit to content" control in the status bar.
-- [ ] Full keyboard shortcuts: undo, save, delete, select-all, Esc (§7).
-- [ ] Light theme + `prefers-color-scheme` respect.
+- [x] Signal-flow animation on HIGH wires (traveling pulse, 1.8s, overlaid stroke).
+- [x] `prefers-reduced-motion` → pulse hidden, static glow on `.wire.is-high` stays.
+- [x] Hover/selection states; cyan focus rings on buttons/chips/menu/fit.
+- [x] Pan (space-drag / middle-mouse) + zoom-toward-cursor (scroll); grid tracks
+      the viewport. Inputs/outputs stay pinned to their rails; gates pan/zoom.
+- [x] "Fit to content" button in the status bar; live zoom % readout.
+- [x] Full keyboard shortcuts: undo/redo, save, delete, select-all, Esc (§7).
+- [x] Light theme toggle + `prefers-color-scheme` respect (remembered choice).
 
-**DoD:** the signal is the star — watching a HIGH signal travel left→right is
-legible and calm, not noisy. Reduced-motion and light theme both verified.
+**DoD:** ✅ built to spec · ⏳ awaiting the visual "signal is the star" sign-off
+(pulse legibility, reduced-motion, light theme) — needs a human at the screen.
+
+**Verification status**
+- ✅ Automated: typecheck, lint, 14 tests, build (20 modules) — all clean.
+- ⏳ Manual (please confirm): live wires show a calm left→right pulse; scroll
+  zooms toward cursor; space/middle-drag pans; Fit frames the gates; the theme
+  toggle (☀/☾) flips light/dark and is remembered across reloads.
+
+**Architecture note (important).** This phase introduced the viewport: gates +
+wires render in a pan/zoom WORLD `<g transform>`; inputs/outputs render PINNED in
+screen space; wires bridge via `terminalScreen()`. `clientToWorld` / `clientToScreen`
+replaced the old `clientToModel`. See [architecture.md §6] if extending the canvas.
+
+**Deferred:** styled in-app Save modal (still native `prompt`); drag-from-palette.
 
 ---
 

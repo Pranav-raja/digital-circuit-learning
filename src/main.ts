@@ -1,10 +1,11 @@
 import "./styles/tokens.css";
 import "./styles/app.css";
-import { mountCanvas } from "./canvas/Canvas";
+import { mountCanvas, setViewListener, fitToContent } from "./canvas/Canvas";
 import { initInteractions } from "./canvas/interactions";
 import { initPalette } from "./ui/Palette";
 import { initStatusBar } from "./ui/StatusBar";
 import { initTopbar } from "./ui/Topbar";
+import { initTheme } from "./ui/Theme";
 import { getState, subscribe, loadCircuit, checkpoint } from "./store";
 import { createAutosaver, loadCurrent } from "./storage/local";
 import { importCircuitFile } from "./storage/files";
@@ -91,6 +92,7 @@ function shell(): string {
       </div>
       <div class="topbar__spacer"></div>
       <div class="live" title="Simulation runs continuously"><span class="live__dot"></span> Live</div>
+      <button class="btn btn--icon" id="tb-theme" aria-label="Toggle light/dark theme"></button>
     </header>
 
     <main class="workspace">
@@ -126,7 +128,10 @@ function shell(): string {
     <footer class="statusbar">
       <span id="sb-count">0 components · 0 wires</span>
       <div class="statusbar__spacer"></div>
-      <span id="sb-meta">zoom 100% · not saved yet</span>
+      <button class="statusbar__btn" id="sb-fit" title="Fit to content">Fit</button>
+      <span id="sb-zoom">100%</span>
+      <span class="statusbar__sep">·</span>
+      <span id="sb-meta">not saved yet</span>
     </footer>
   </div>`;
 }
@@ -141,6 +146,11 @@ const status = initStatusBar();
 initInteractions(status.setMessage);
 initPalette();
 initTopbar(status.setMessage);
+initTheme();
+
+// Phase 4 — viewport: keep the zoom readout live, and wire "Fit to content".
+setViewListener(status.setZoom);
+document.getElementById("sb-fit")?.addEventListener("click", fitToContent);
 
 // Phase 2 — don't-lose-my-work: autosave on every change, restore on load.
 const autosaver = createAutosaver({ onSaved: status.setSaved, onError: status.setMessage });
