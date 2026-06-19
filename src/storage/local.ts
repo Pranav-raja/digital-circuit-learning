@@ -78,3 +78,62 @@ export function createAutosaver(opts: AutosaveOptions = {}): Autosaver {
     },
   };
 }
+
+// ---- named "My Circuits" saves (spec §10) ---------------------------------
+// An index of metadata lives at logiclab:saved:index; each circuit at
+// logiclab:saved:<id>. Saving with an existing name overwrites that entry.
+
+const INDEX_KEY = "logiclab:saved:index";
+const itemKey = (id: string): string => `logiclab:saved:${id}`;
+
+export interface SavedMeta {
+  id: string;
+  name: string;
+  updatedAt: string;
+}
+
+const newSavedId = (): string => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+export function listSaved(): SavedMeta[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(INDEX_KEY) ?? "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Save (or overwrite, when the name matches) a named circuit. null on failure. */
+export function saveNamed(circuit: Circuit, name: string): SavedMeta | null {
+  const list = listSaved();
+  const existing = list.find((m) => m.name === name);
+  const id = existing?.id ?? newSavedId();
+  const updatedAt = new Date().toISOString();
+  try {
+    localStorage.setItem(itemKey(id), JSON.stringify({ ...circuit, name, updatedAt }));
+    const meta: SavedMeta = { id, name, updatedAt };
+    localStorage.setItem(
+      INDEX_KEY,
+      JSON.stringify(existing ? list.map((m) => (m.id === id ? meta : m)) : [...list, meta]),
+    );
+    return meta;
+  } catch {
+    return null;
+  }
+}
+
+export function loadNamed(id: string): Circuit | null {
+  const raw = localStorage.getItem(itemKey(id));
+  if (!raw) return null;
+  try {
+    const res = validateCircuit(JSON.parse(raw));
+    return res.ok ? res.circuit : null;
+  } catch {
+    return null;
+  }
+}
+
+export function deleteNamed(id: string): void {
+  localStorage.removeItem(itemKey(id));
+  localStorage.setItem(INDEX_KEY, JSON.stringify(listSaved().filter((m) => m.id !== id)));
+}

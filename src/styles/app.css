@@ -104,6 +104,84 @@ body {
   background: transparent;
 }
 
+/* Open ▾ dropdown — the "My Circuits" list */
+.menu-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 248px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--sp-1);
+  background: var(--bg-chrome);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.menu[hidden] {
+  display: none;
+}
+.menu__empty {
+  padding: var(--sp-3);
+  color: var(--ink-dim);
+  font-size: var(--fs-xs);
+}
+.menu__row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+.menu__load {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-panel);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.menu__load:hover {
+  background: var(--chrome-hover);
+}
+.menu__name {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+}
+.menu__time {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--ink-dim);
+}
+.menu__del {
+  padding: 0 var(--sp-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-panel);
+  color: var(--ink-dim);
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+.menu__del:hover {
+  color: #ff6b6b;
+  background: var(--chrome-hover);
+}
+.menu__load:focus-visible,
+.menu__del:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* continuous-simulation indicator (replaces a Run/Pause toggle in v1) */
 .live {
   display: flex;
@@ -271,6 +349,25 @@ body {
 .rail-band__add:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* drag-a-.json-to-import affordance (spec §10) */
+.board-area.is-drop-target::after {
+  content: "Drop a .json file to import";
+  position: absolute;
+  inset: var(--sp-4);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--tracking-mono);
+  pointer-events: none;
 }
 
 /* the build area background: the blueprint grid (fine 24px + coarse 120px) */

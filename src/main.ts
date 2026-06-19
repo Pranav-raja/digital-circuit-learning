@@ -4,8 +4,10 @@ import { mountCanvas } from "./canvas/Canvas";
 import { initInteractions } from "./canvas/interactions";
 import { initPalette } from "./ui/Palette";
 import { initStatusBar } from "./ui/StatusBar";
-import { getState, subscribe, loadCircuit } from "./store";
+import { initTopbar } from "./ui/Topbar";
+import { getState, subscribe, loadCircuit, checkpoint } from "./store";
 import { createAutosaver, loadCurrent } from "./storage/local";
+import { importCircuitFile } from "./storage/files";
 
 /*
  * Phase 1 — a circuit that works. main.ts builds the shell, mounts the canvas,
@@ -78,11 +80,14 @@ function shell(): string {
     <header class="topbar">
       <div class="brand"><span class="brand__mark">&#9671;</span> Logic Lab</div>
       <div class="topbar__group">
-        <button class="btn is-stub" title="Coming in Phase 2">New</button>
-        <button class="btn is-stub" title="Coming in Phase 2">Save</button>
-        <button class="btn is-stub" title="Coming in Phase 3">Open &#9662;</button>
-        <button class="btn is-stub" title="Coming in Phase 3">Export</button>
-        <button class="btn is-stub" title="Coming in Phase 3">Import</button>
+        <button class="btn" id="tb-new">New</button>
+        <button class="btn" id="tb-save">Save</button>
+        <div class="menu-anchor">
+          <button class="btn" id="tb-open" aria-haspopup="true" aria-expanded="false">Open &#9662;</button>
+          <div class="menu" id="tb-open-menu" role="menu" hidden></div>
+        </div>
+        <button class="btn" id="tb-export">Export</button>
+        <button class="btn" id="tb-import">Import</button>
       </div>
       <div class="topbar__spacer"></div>
       <div class="live" title="Simulation runs continuously"><span class="live__dot"></span> Live</div>
@@ -135,6 +140,7 @@ mountCanvas(boardArea);
 const status = initStatusBar();
 initInteractions(status.setMessage);
 initPalette();
+initTopbar(status.setMessage);
 
 // Phase 2 — don't-lose-my-work: autosave on every change, restore on load.
 const autosaver = createAutosaver({ onSaved: status.setSaved, onError: status.setMessage });
@@ -148,5 +154,28 @@ window.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
     e.preventDefault();
     autosaver.flush(getState().circuit);
+  }
+});
+
+// Phase 3 — drag a .json file onto the board to import it (spec §10).
+boardArea.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  boardArea.classList.add("is-drop-target");
+});
+boardArea.addEventListener("dragleave", (e) => {
+  if (e.target === boardArea) boardArea.classList.remove("is-drop-target");
+});
+boardArea.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  boardArea.classList.remove("is-drop-target");
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  const res = await importCircuitFile(file);
+  if (res.ok) {
+    checkpoint();
+    loadCircuit(res.circuit);
+    status.setMessage(`Imported “${res.circuit.name}”.`);
+  } else {
+    status.setMessage(res.error);
   }
 });

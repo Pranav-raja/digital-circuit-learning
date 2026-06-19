@@ -6,8 +6,8 @@ next begins. Tick boxes only when done *and* the acceptance criteria hold.
 
 **Status legend:** `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-**Current position:** Phase 2 implemented (2026-06-18) — automated checks green;
-awaiting visual/interaction sign-off. Next: Phase 3.
+**Current position:** Phase 3 implemented (2026-06-19) — automated checks green;
+awaiting visual/interaction sign-off. Next: Phase 4.
 
 ---
 
@@ -102,16 +102,30 @@ Goal: place gates, wire them, flip inputs, watch outputs light up.
 
 ---
 
-## Phase 3 — Files & saves
+## Phase 3 — Files & saves ✅ implemented
 
-- [ ] `storage/files.ts` — export `<name>.json` via Blob + temp `<a download>`.
-- [ ] Import via file picker; validate `version` + shape before loading.
-- [ ] Drag a `.json` onto the canvas to import.
-- [ ] Named "My Circuits" list in `logiclab:saved:<id>`, reachable from `Open ▾`.
-- [ ] Graceful messages: corrupt file, wrong version, localStorage full.
+- [x] `storage/files.ts` — export `<name>.json` via Blob + temp `<a download>`.
+- [x] Import via file picker (`pickAndImport`); validates `version` + shape.
+- [x] Drag a `.json` onto the board to import (with a cyan drop affordance).
+- [x] Named "My Circuits" list in `logiclab:saved:<id>` + index, under `Open ▾`
+      (load + delete; save-by-name overwrites a matching name).
+- [x] Graceful messages: corrupt file, newer version, storage full — all routed
+      through the status bar in the app's voice (spec §13).
+- [x] `New` clears to a fresh circuit (undoable).
 
-**DoD:** export a circuit, clear the app, re-import the file → identical circuit.
-Bad files show a human message, never a stack trace.
+**DoD:** ✅ round-trip proven by the model test (Circuit → JSON → Circuit equals)
+· ⏳ awaiting export-file/re-import sign-off in the browser.
+
+**Verification status**
+- ✅ Automated: typecheck, lint, 14 tests, build (19 modules) — all clean.
+- ⏳ Manual (please confirm): Export downloads `<name>.json`; New clears; Import
+  / drag-drop restores it; Save names it; Open ▾ lists, loads, and deletes; a
+  hand-corrupted file shows a plain message, not a crash.
+
+**Design notes / deferred:**
+- Save-name uses a native `window.prompt` for now; a styled in-app modal is a
+  Phase 4 polish item (keeps the app's voice consistent).
+- Named saves overwrite by matching name (no silent duplicates).
 
 ---
 
