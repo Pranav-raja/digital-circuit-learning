@@ -196,6 +196,18 @@ Out of v1 scope; capture intent, don't start until 0–5 are solid.
 
 ---
 
+## Post-v1 additions (beyond the spec)
+
+### Component Guide — the in-app manual ✅ implemented (2026-06-20)
+
+- [x] `ui/guide-content.ts` — teaching content per type (summary, how-it-works +
+      truth table, how-to-use, where-it's-used) for all 14 shipped parts.
+- [x] `ui/Guide.ts` — slide-in drawer; opened by per-part ⓘ icons and a palette
+      "Guide" button; nav to jump between parts; Esc/backdrop/× close.
+- [x] See [ADR-008](decisions.md). Automated checks green; ⏳ awaiting visual sign-off.
+
+---
+
 ## Quality floor — applies to every phase (spec §13)
 
 Re-check these as features land; they are not a separate phase.

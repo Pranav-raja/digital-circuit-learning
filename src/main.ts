@@ -6,6 +6,7 @@ import { initPalette } from "./ui/Palette";
 import { initStatusBar } from "./ui/StatusBar";
 import { initTopbar } from "./ui/Topbar";
 import { initTheme } from "./ui/Theme";
+import { initGuide } from "./ui/Guide";
 import { getState, subscribe, loadCircuit, checkpoint } from "./store";
 import { createAutosaver, loadCurrent } from "./storage/local";
 import { importCircuitFile } from "./storage/files";
@@ -63,15 +64,21 @@ const PALETTE: PaletteCategory[] = [
 ];
 
 const chevron = `<svg class="cat__chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2 l4 4 l-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const infoGlyph = `<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="4.7" r="1" fill="currentColor"/><rect x="7.2" y="6.6" width="1.6" height="5.2" rx="0.8" fill="currentColor"/></svg>`;
+
+function paletteItem(it: PaletteItem): string {
+  if (!it.type) {
+    return `<button class="chip is-soon" title="Coming in a later phase">${it.label}</button>`;
+  }
+  // A live part: a place button + a ⓘ that opens the guide for this component.
+  return `<span class="chip-row">
+      <button class="chip" data-type="${it.type}" title="Place ${it.label}">${it.label}</button>
+      <button class="chip-info" data-guide="${it.type}" aria-label="How to use ${it.label}" title="How to use ${it.label}">${infoGlyph}</button>
+    </span>`;
+}
 
 function paletteCategory(cat: PaletteCategory): string {
-  const items = cat.items
-    .map((it) =>
-      it.type
-        ? `<button class="chip" data-type="${it.type}">${it.label}</button>`
-        : `<button class="chip is-soon" title="Coming in a later phase">${it.label}</button>`,
-    )
-    .join("");
+  const items = cat.items.map(paletteItem).join("");
   return `<details class="cat"${cat.open ? " open" : ""}>
       <summary>${chevron}<span>${cat.name}</span></summary>
       <div class="cat__items">${items}</div>
@@ -100,7 +107,10 @@ function shell(): string {
 
     <main class="workspace">
       <aside class="palette" aria-label="Component library">
-        <div class="palette__title">Components</div>
+        <div class="palette__title">
+          <span>Components</span>
+          <button class="palette__guide" data-guide="" title="Open the component guide">${infoGlyph}<span>Guide</span></button>
+        </div>
         ${PALETTE.map(paletteCategory).join("")}
       </aside>
 
@@ -150,6 +160,7 @@ initInteractions(status.setMessage);
 initPalette();
 initTopbar(status.setMessage);
 initTheme();
+initGuide();
 
 // Phase 4 — viewport: keep the zoom readout live, and wire "Fit to content".
 setViewListener(status.setZoom);

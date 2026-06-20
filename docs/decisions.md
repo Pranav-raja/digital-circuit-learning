@@ -112,6 +112,28 @@ structure and fails with a human message, never a stack trace.
 
 ---
 
+## ADR-008 — In-app Component Guide (the manual)
+**Status:** Accepted · 2026-06-20 · _feature beyond the spec, user-requested_
+
+**Context.** Users need to learn what each part does, how it works, and where it's
+used. Options: per-part info icons, per-category icons, or one global help panel.
+
+**Decision.** Both contextual and browsable entry points, opening one slide-in
+drawer: a **ⓘ icon on every live palette part** (contextual) plus a **"Guide"
+button** in the palette header (browse all). Teaching content lives in
+`ui/guide-content.ts` — data keyed by component type, kept SEPARATE from
+`core/registry.ts` (registry = logic/shape; guide = prose). Any `[data-guide]`
+element opens the drawer via one delegated listener (`ui/Guide.ts`).
+
+**Consequences.**
+- Adding a part's help is a data entry in `guide-content.ts`; no wiring.
+- The drawer is off-canvas chrome (rule #5): hidden until asked, Esc/backdrop/×
+  close it. It never competes with the board.
+- Truth tables render from data with 1s highlighted amber, reinforcing the
+  signal-is-the-star language even in the docs.
+
+---
+
 ## ADR-007 — Docs-first, phase-gated delivery
 **Status:** Accepted · 2026-06-18
 
