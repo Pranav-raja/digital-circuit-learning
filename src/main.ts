@@ -7,6 +7,7 @@ import { initStatusBar } from "./ui/StatusBar";
 import { initTopbar } from "./ui/Topbar";
 import { initTheme } from "./ui/Theme";
 import { initGuide } from "./ui/Guide";
+import { initTutorial } from "./ui/Tutorial";
 import { getState, subscribe, loadCircuit, checkpoint, tickClock } from "./store";
 import { createAutosaver, loadCurrent } from "./storage/local";
 import { importCircuitFile } from "./storage/files";
@@ -106,6 +107,7 @@ function shell(): string {
         <button class="btn" id="tb-import">Import</button>
       </div>
       <div class="topbar__spacer"></div>
+      <button class="btn" id="tb-tutorial" title="Take the guided tour">Tutorial</button>
       <div class="live" title="Simulation runs continuously"><span class="live__dot"></span> Live</div>
       <button class="btn btn--icon" id="tb-theme" aria-label="Toggle light/dark theme"></button>
     </header>
@@ -180,6 +182,9 @@ subscribe(() => autosaver.schedule(getState().circuit));
 
 const restored = loadCurrent();
 if (restored) loadCircuit(restored);
+
+// Phase 6 — first-run guided tour (auto-starts on a blank board, replayable via Tutorial).
+initTutorial();
 
 // Ctrl/Cmd+S forces an immediate save (spec §7).
 window.addEventListener("keydown", (e) => {

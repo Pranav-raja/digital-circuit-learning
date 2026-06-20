@@ -191,10 +191,12 @@ Out of v1 scope; capture intent, don't start until 0–5 are solid.
       See [ADR-009](decisions.md). 21 tests incl. flip-flop edge + divide-by-two.
 - [x] Clock + D flip-flop (depends on the above). Clock = 700ms silent `tickClock`;
       DFF self-feedback (Q'→D) now allowed for divide-by-two.
-- [ ] Transistor "build-an-AND-from-switches" mode (Atoms category).
+- [x] Guided tutorial overlay — `ui/Tutorial.ts`: a 7-step interactive tour that
+      auto-advances by watching the live circuit; auto-starts on a blank board,
+      replayable via the topbar "Tutorial" button.
+- [ ] Touch support (mobile is desktop-first stretch only).  ← next
 - [ ] Subcircuits: collapse a circuit into a reusable block.
-- [ ] Guided lesson / tutorial overlay.
-- [ ] Touch support (mobile is desktop-first stretch only).
+- [ ] Transistor "build-an-AND-from-switches" mode (Atoms category).
 
 **Sequential slice — verification**
 - ✅ Automated: typecheck, lint, 21 tests, build — all clean.
