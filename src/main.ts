@@ -34,10 +34,10 @@ const PALETTE: PaletteCategory[] = [
       { label: "AND", type: "and" },
       { label: "OR", type: "or" },
       { label: "NOT", type: "not" },
-      { label: "NAND" },
-      { label: "NOR" },
-      { label: "XOR" },
-      { label: "XNOR" },
+      { label: "NAND", type: "nand" },
+      { label: "NOR", type: "nor" },
+      { label: "XOR", type: "xor" },
+      { label: "XNOR", type: "xnor" },
     ],
   },
   {
@@ -45,17 +45,20 @@ const PALETTE: PaletteCategory[] = [
     open: true,
     items: [{ label: "Input", type: "input" }, { label: "Output", type: "output" }, { label: "Clock" }],
   },
-  { name: "Display", items: [{ label: "7-segment" }, { label: "Number" }] },
+  { name: "Display", items: [{ label: "7-segment", type: "sevenseg" }, { label: "Number" }] },
   {
     name: "Arithmetic",
     items: [
-      { label: "Half adder" },
-      { label: "Full adder" },
+      { label: "Half adder", type: "halfadder" },
+      { label: "Full adder", type: "fulladder" },
       { label: "n-bit adder" },
       { label: "Subtractor" },
     ],
   },
-  { name: "Selectors", items: [{ label: "2:1 MUX" }, { label: "4:1 MUX" }, { label: "Decoder" }] },
+  {
+    name: "Selectors",
+    items: [{ label: "2:1 MUX", type: "mux2" }, { label: "4:1 MUX", type: "mux4" }, { label: "Decoder" }],
+  },
   { name: "Atoms", items: [{ label: "NMOS" }, { label: "PMOS" }] },
 ];
 

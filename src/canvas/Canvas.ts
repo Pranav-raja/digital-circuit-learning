@@ -165,6 +165,69 @@ function termCircle(
   return `<circle class="term term--${dir}${high ? " is-high" : ""}" data-comp="${c.id}" data-term="${term}" data-dir="${dir}" cx="${p.x}" cy="${p.y}" r="6" />`;
 }
 
+// which of the 7 segments (a–g) light for each hex digit 0–F
+const SEG: Record<number, string> = {
+  0: "abcdef",
+  1: "bc",
+  2: "abdeg",
+  3: "abcdg",
+  4: "bcfg",
+  5: "acdfg",
+  6: "acdefg",
+  7: "abc",
+  8: "abcdefg",
+  9: "abcdfg",
+  10: "abcefg",
+  11: "cdefg",
+  12: "adef",
+  13: "bcdeg",
+  14: "adefg",
+  15: "aefg",
+};
+
+/** Small label drawn just inside a terminal (e.g. A, B, Cin, sel, 8/4/2/1). */
+function pinLabel(c: ComponentInstance, def: ComponentDef, term: string, dir: "in" | "out"): string {
+  const text = def.pinLabels?.[term];
+  if (!text) return "";
+  const p = terminalPos(c, def, term);
+  const x = dir === "in" ? p.x + 9 : p.x - 9;
+  return `<text class="pin-label" x="${x}" y="${p.y}" text-anchor="${dir === "in" ? "start" : "end"}">${esc(text)}</text>`;
+}
+
+/** Custom renderer: a 7-segment hex digit driven by 4 BCD inputs (in0 = LSB). */
+function renderSevenSeg(
+  c: ComponentInstance,
+  def: ComponentDef,
+  selected: boolean,
+  inVals: Record<string, number>,
+): string {
+  const { w, h } = sizeOf(def);
+  const digit =
+    (inVals.in0 ? 1 : 0) | (inVals.in1 ? 2 : 0) | (inVals.in2 ? 4 : 0) | (inVals.in3 ? 8 : 0);
+  const lit = SEG[digit] ?? "";
+  const x0 = c.x + 28;
+  const x1 = c.x + w - 12;
+  const yT = c.y + 16;
+  const yM = c.y + h / 2;
+  const yB = c.y + h - 16;
+  const seg = (k: string, a: number, b: number, d: number, e: number): string =>
+    `<line class="seg${lit.includes(k) ? " is-on" : ""}" x1="${a}" y1="${b}" x2="${d}" y2="${e}" />`;
+  const segs =
+    seg("a", x0, yT, x1, yT) +
+    seg("g", x0, yM, x1, yM) +
+    seg("d", x0, yB, x1, yB) +
+    seg("f", x0, yT, x0, yM) +
+    seg("e", x0, yM, x0, yB) +
+    seg("b", x1, yT, x1, yM) +
+    seg("c", x1, yM, x1, yB);
+  const terms = def.inputs.map((t) => termCircle(c, def, t, "in", inVals[t] === 1)).join("");
+  const labels = def.inputs.map((t) => pinLabel(c, def, t, "in")).join("");
+  return `<g class="comp${selected ? " is-selected" : ""}" data-id="${c.id}">
+    <rect class="seg-body" x="${c.x}" y="${c.y}" width="${w}" height="${h}" rx="6" />
+    ${segs}${terms}${labels}
+  </g>`;
+}
+
 function renderComponent(
   c: ComponentInstance,
   def: ComponentDef,
@@ -172,6 +235,8 @@ function renderComponent(
   outVals: Record<string, number>,
   inVals: Record<string, number>,
 ): string {
+  if (def.render === "seven-seg") return renderSevenSeg(c, def, selected, inVals);
+
   const { w, h } = sizeOf(def);
   const head = `<g class="comp${selected ? " is-selected" : ""}" data-id="${c.id}">`;
 
@@ -197,13 +262,21 @@ function renderComponent(
   }
 
   // gate / block (world layer)
+  const cx = c.x + w / 2;
   const terms =
-    def.inputs.map((t) => termCircle(c, def, t, "in", false)).join("") +
+    def.inputs.map((t) => termCircle(c, def, t, "in", inVals[t] === 1)).join("") +
     def.outputs.map((t) => termCircle(c, def, t, "out", outVals[t] === 1)).join("");
+  const pins =
+    def.inputs.map((t) => pinLabel(c, def, t, "in")).join("") +
+    def.outputs.map((t) => pinLabel(c, def, t, "out")).join("");
+  const labelY = def.sublabel ? c.y + h / 2 - 7 : c.y + h / 2;
+  const sub = def.sublabel
+    ? `<text class="gate-sublabel" x="${cx}" y="${c.y + h / 2 + 9}">${esc(def.sublabel)}</text>`
+    : "";
   return `${head}
     <rect class="gate-body" x="${c.x}" y="${c.y}" width="${w}" height="${h}" />
-    <text class="gate-label" x="${c.x + w / 2}" y="${c.y + h / 2}">${esc(def.label)}</text>
-    ${terms}
+    <text class="gate-label" x="${cx}" y="${labelY}">${esc(def.label)}</text>
+    ${sub}${pins}${terms}
   </g>`;
 }
 

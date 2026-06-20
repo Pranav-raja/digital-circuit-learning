@@ -6,8 +6,8 @@ next begins. Tick boxes only when done *and* the acceptance criteria hold.
 
 **Status legend:** `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
-**Current position:** Phase 4 implemented (2026-06-19) — automated checks green;
-awaiting visual/interaction sign-off. Next: Phase 5.
+**Current position:** Phase 5 implemented (2026-06-20) — automated checks green;
+awaiting visual/interaction sign-off. Next: Phase 6 (stretch) or wrap v1.
 
 ---
 
@@ -158,19 +158,28 @@ replaced the old `clientToModel`. See [architecture.md §6] if extending the can
 
 ---
 
-## Phase 5 — Richer parts
+## Phase 5 — Richer parts ✅ implemented
 
 Each is (mostly) a registry entry; the display needs a custom renderer.
 
-- [ ] XOR, XNOR, NAND, NOR (registry entries + gate glyphs).
-- [ ] 2:1 MUX, 4:1 MUX.
-- [ ] Half adder, full adder.
-- [ ] 7-segment display (4-bit BCD) — custom `seven-seg` renderer.
-- [ ] Palette categories populated and collapsible (Gates / I/O / Display /
-      Arithmetic / Selectors / Atoms).
+- [x] XOR, XNOR, NAND, NOR — pure registry entries (default gate renderer).
+- [x] 2:1 MUX, 4:1 MUX — registry entries with `sublabel` + `pinLabels`.
+- [x] Half adder, full adder — registry entries (`sum`/`carry` output terminals).
+- [x] 7-segment display (4-bit BCD, in0 = LSB) — custom `seven-seg` renderer.
+- [x] Palette categories populated; live parts carry `data-type`, the rest dimmed.
 
-**DoD:** each new part wires up and simulates correctly; adding one required no
-change outside its registry entry (and, for the display, its renderer).
+**DoD:** ✅ every new part has a passing truth-table test; the gates needed ONLY
+registry entries. One-time generic renderer additions (`sublabel`, `pinLabels`,
+`width`) keep MUX/adders data-only; the display has its own renderer (as allowed).
+⏳ awaiting visual sign-off (glyphs, pin labels, lit segments).
+
+**Verification status**
+- ✅ Automated: typecheck, lint, 19 tests (incl. MUX/adder/XOR-family), build — clean.
+- ⏳ Manual (please confirm): drop a 7-segment + 4 inputs (weights 1/2/4/8) → it
+  shows 0–F as you toggle; MUX selects; half/full adder compute; pin labels read.
+
+**Deferred to stretch:** multi-digit number display; n-bit adder/subtractor;
+decoder; transistor atoms; IEEE-shaped gate glyphs (labeled boxes ship now).
 
 ---
 

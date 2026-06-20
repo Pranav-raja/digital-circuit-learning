@@ -533,6 +533,48 @@ body {
   dominant-baseline: central;
   pointer-events: none;
 }
+.gate-sublabel {
+  fill: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: var(--tracking-mono);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.pin-label {
+  fill: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+/* 7-segment display (spec §6) */
+.seg-body {
+  fill: var(--bg-chrome);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  cursor: grab;
+}
+.comp.is-selected .seg-body {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.seg {
+  stroke: var(--signal-low);
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.35;
+  transition:
+    stroke var(--t-fast) var(--ease),
+    opacity var(--t-fast) var(--ease);
+}
+.seg.is-on {
+  stroke: var(--signal-high);
+  opacity: 1;
+  filter: drop-shadow(0 0 3px var(--signal-high-glow));
+}
 
 .io-body {
   fill: var(--bg-chrome);

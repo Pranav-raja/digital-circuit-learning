@@ -42,6 +42,56 @@ describe("primitive gates", () => {
   });
 });
 
+describe("richer gates (Phase 5)", () => {
+  it("NAND / NOR / XOR / XNOR", () => {
+    expect([gateOut("nand", [0, 0]), gateOut("nand", [1, 1])]).toEqual([1, 0]);
+    expect([gateOut("nor", [0, 0]), gateOut("nor", [1, 0])]).toEqual([1, 0]);
+    expect([gateOut("xor", [1, 0]), gateOut("xor", [1, 1])]).toEqual([1, 0]);
+    expect([gateOut("xnor", [1, 0]), gateOut("xnor", [1, 1])]).toEqual([0, 1]);
+  });
+});
+
+/** Drive a multi-input part and read one of its output terminals. */
+function partOut(type: string, ins: Record<string, Bit>, outTerm: string): Bit {
+  const c = createCircuit();
+  const g = addComponent(c, type, 300, 100);
+  for (const [term, value] of Object.entries(ins)) {
+    const a = addInput(c);
+    a.value = value;
+    addWire(c, { comp: a.id, term: "out0" }, { comp: g.id, term });
+  }
+  return (evaluate(c, REGISTRY).outputs.get(g.id)?.[outTerm] ?? 0) as Bit;
+}
+
+describe("selectors", () => {
+  it("2:1 MUX picks in0/in1 by select", () => {
+    expect(partOut("mux2", { in0: 1, in1: 0, s0: 0 }, "out0")).toBe(1);
+    expect(partOut("mux2", { in0: 1, in1: 0, s0: 1 }, "out0")).toBe(0);
+  });
+  it("4:1 MUX picks the selected input", () => {
+    expect(partOut("mux4", { in0: 0, in1: 0, in2: 1, in3: 0, s0: 0, s1: 1 }, "out0")).toBe(1);
+    expect(partOut("mux4", { in0: 0, in1: 1, in2: 0, in3: 0, s0: 1, s1: 0 }, "out0")).toBe(1);
+  });
+});
+
+describe("arithmetic parts", () => {
+  it("full adder sum + carry over all 8 inputs", () => {
+    for (let n = 0; n < 8; n++) {
+      const a = (n & 1) as Bit;
+      const b = ((n >> 1) & 1) as Bit;
+      const cin = ((n >> 2) & 1) as Bit;
+      const total = a + b + cin;
+      expect(partOut("fulladder", { in0: a, in1: b, cin }, "sum")).toBe((total & 1) as Bit);
+      expect(partOut("fulladder", { in0: a, in1: b, cin }, "carry")).toBe((total > 1 ? 1 : 0) as Bit);
+    }
+  });
+  it("half adder sum + carry", () => {
+    expect(partOut("halfadder", { in0: 1, in1: 1 }, "carry")).toBe(1);
+    expect(partOut("halfadder", { in0: 1, in1: 1 }, "sum")).toBe(0);
+    expect(partOut("halfadder", { in0: 1, in1: 0 }, "sum")).toBe(1);
+  });
+});
+
 describe("wiring semantics", () => {
   it("an unconnected input defaults to 0", () => {
     const c = createCircuit();

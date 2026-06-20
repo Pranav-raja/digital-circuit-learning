@@ -26,10 +26,15 @@ export function sizeOf(def: ComponentDef): Box {
     case "toggle":
     case "led":
       return { w: 100, h: 36 };
+    case "seven-seg": {
+      // tall enough for the digit; height also tracks the 4 BCD input pins.
+      const rows = Math.max(def.inputs.length, 1);
+      return { w: 72, h: Math.max(112, rows * 24 + 24) };
+    }
     default: {
       // gate / block: tall enough for the busier face, on a 24px rhythm.
       const rows = Math.max(def.inputs.length, def.outputs.length, 1);
-      return { w: 72, h: Math.max(48, rows * 24 + 24) };
+      return { w: def.width ?? 72, h: Math.max(48, rows * 24 + 24) };
     }
   }
 }
