@@ -26,6 +26,8 @@ export function sizeOf(def: ComponentDef): Box {
     case "toggle":
     case "led":
       return { w: 100, h: 36 };
+    case "clock":
+      return { w: 64, h: 48 };
     case "seven-seg": {
       // tall enough for the digit; height also tracks the 4 BCD input pins.
       const rows = Math.max(def.inputs.length, 1);

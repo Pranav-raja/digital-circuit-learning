@@ -21,9 +21,10 @@ export interface GuideEntry {
 /** Nav grouping + ordering for the guide drawer. */
 export const GUIDE_ORDER: { category: string; types: string[] }[] = [
   { category: "Gates", types: ["and", "or", "not", "nand", "nor", "xor", "xnor"] },
-  { category: "I/O", types: ["input", "output"] },
+  { category: "I/O", types: ["input", "output", "clock"] },
   { category: "Selectors", types: ["mux2", "mux4"] },
   { category: "Arithmetic", types: ["halfadder", "fulladder"] },
+  { category: "Sequential", types: ["dff"] },
   { category: "Display", types: ["sevenseg"] },
 ];
 
@@ -192,6 +193,39 @@ export const GUIDE: Record<string, GuideEntry> = {
     where: [
       "The result you are measuring — a lamp, indicator, or display.",
       "Watch the SUM and CARRY of an adder light up as you change the inputs.",
+    ],
+  },
+  clock: {
+    title: "Clock",
+    summary: "Pulses between 0 and 1 on its own, driving sequential circuits forward.",
+    how: [
+      "A signal source that flips at a steady rate — no clicking needed.",
+      "Its rising edges (0 to 1) are what tell flip-flops when to update.",
+    ],
+    use: [
+      "Drop it on the board and wire its output to a flip-flop's CLK pin.",
+      "It runs continuously; watch downstream parts step on every tick.",
+    ],
+    where: [
+      "The heartbeat of every synchronous system — CPUs, counters, timers.",
+      "Sets the pace at which a circuit advances one step at a time.",
+    ],
+  },
+  dff: {
+    title: "D flip-flop",
+    summary: "Stores one bit. On each clock rising edge it captures D; otherwise it holds.",
+    how: [
+      "Inputs D (data) and CLK; outputs Q (the stored bit) and Q' (its inverse).",
+      "When the clock goes 0 to 1, Q copies D. Between edges Q stays put — that memory is what makes it 'sequential'.",
+      "Tip: wire Q' back to D and feed a clock to build a divide-by-two (Q toggles once per clock).",
+    ],
+    use: [
+      "Wire a data signal to D and a clock to CLK.",
+      "Q changes only on each clock rising edge — it remembers between ticks.",
+    ],
+    where: [
+      "Registers and memory cells.",
+      "Counters, state machines, and CPU pipelines — anything that must remember.",
     ],
   },
   mux2: {

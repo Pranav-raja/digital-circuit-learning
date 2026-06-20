@@ -187,12 +187,20 @@ decoder; transistor atoms; IEEE-shaped gate glyphs (labeled boxes ship now).
 
 Out of v1 scope; capture intent, don't start until 0–5 are solid.
 
-- [ ] Sequential engine: iterative settling (evaluate until stable or step cap).
-- [ ] Clock + flip-flops (depends on the above).
+- [x] Sequential engine: iterative settling (evaluate until stable or step cap).
+      See [ADR-009](decisions.md). 21 tests incl. flip-flop edge + divide-by-two.
+- [x] Clock + D flip-flop (depends on the above). Clock = 700ms silent `tickClock`;
+      DFF self-feedback (Q'→D) now allowed for divide-by-two.
 - [ ] Transistor "build-an-AND-from-switches" mode (Atoms category).
 - [ ] Subcircuits: collapse a circuit into a reusable block.
 - [ ] Guided lesson / tutorial overlay.
 - [ ] Touch support (mobile is desktop-first stretch only).
+
+**Sequential slice — verification**
+- ✅ Automated: typecheck, lint, 21 tests, build — all clean.
+- ⏳ Manual (please confirm): drop a Clock + D flip-flop; wire CLK and watch Q
+  update on rising edges; wire Q'→D for a blinking divide-by-two; a 3-NOT loop
+  flags red (oscillator) instead of hanging.
 
 ---
 

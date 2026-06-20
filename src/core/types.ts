@@ -10,8 +10,15 @@ export type Bit = 0 | 1;
 /** Terminal handle within a component, e.g. "in0", "out0". */
 export type TerminalId = string;
 
-/** Category keys drive palette grouping (spec §6). */
-export type Category = "gates" | "io" | "display" | "arithmetic" | "selectors" | "atoms";
+/** Category keys drive palette grouping (spec §6; +sequential, Phase 6). */
+export type Category =
+  | "gates"
+  | "io"
+  | "display"
+  | "arithmetic"
+  | "selectors"
+  | "sequential"
+  | "atoms";
 
 /** A placed component — pure data, part of the save file. */
 export interface ComponentInstance {

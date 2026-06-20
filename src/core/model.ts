@@ -95,7 +95,8 @@ export function addWire(circuit: Circuit, from: TerminalRef, to: TerminalRef): W
   const fromC = byId(circuit, from.comp);
   const toC = byId(circuit, to.comp);
   if (!fromC || !toC) return { ok: false, reason: "That part is gone." };
-  if (from.comp === to.comp) return { ok: false, reason: "Can't wire a part to itself." };
+  // Self-feedback is allowed (e.g. a flip-flop's Q' → D); the engine settles or
+  // flags oscillating loops rather than forbidding them (Phase 6).
 
   const fromDef = REGISTRY[fromC.type];
   const toDef = REGISTRY[toC.type];

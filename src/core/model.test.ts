@@ -48,14 +48,14 @@ describe("validateCircuit", () => {
 });
 
 describe("wiring rules (§7)", () => {
-  it("rejects wires that don't go output → input", () => {
+  it("enforces output → input orientation, but allows self-feedback", () => {
     const c = createCircuit();
     const g1 = addComponent(c, "and", 100, 100);
     const g2 = addComponent(c, "and", 300, 100);
     // input → input is illegal
     expect(addWire(c, { comp: g1.id, term: "in0" }, { comp: g2.id, term: "in0" }).ok).toBe(false);
-    // a part to itself is illegal
-    expect(addWire(c, { comp: g1.id, term: "out0" }, { comp: g1.id, term: "in0" }).ok).toBe(false);
+    // output → input on the same part is allowed (e.g. a flip-flop's Q' → D)
+    expect(addWire(c, { comp: g1.id, term: "out0" }, { comp: g1.id, term: "in0" }).ok).toBe(true);
   });
 
   it("removing a component also removes its attached wires", () => {

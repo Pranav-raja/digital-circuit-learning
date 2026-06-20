@@ -34,11 +34,11 @@ is negotiable; this is not.
 ## Status at a glance
 
 - **Decided:** stack (Vite + TypeScript + hand-rolled SVG), name (Logic Lab).
-- **Current phase:** Phase 5 implemented — richer parts (XOR/XNOR/NAND/NOR, 2:1 &
-  4:1 MUX, half/full adder, 7-segment display). typecheck / lint / 19 tests /
-  build all clean; awaiting visual sign-off. **Phases 0–5 = v1 feature-complete.**
-- **Next:** Phase 6 is stretch (sequential engine/clock, subcircuits, tutorial,
-  touch) — optional. Otherwise v1 is done.
+- **Current phase:** Phase 5 done + Phase 6 sequential slice — iterative-settling
+  engine, **Clock + D flip-flop** (see [ADR-009](decisions.md)). typecheck / lint /
+  **21 tests** / build all clean; awaiting visual sign-off.
+- **Next (remaining Phase 6 stretch):** transistor mode, subcircuits, tutorial
+  overlay, touch. Each is an independent, optional project.
 
 ## Running it
 

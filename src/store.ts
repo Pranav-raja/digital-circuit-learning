@@ -5,9 +5,9 @@
  * `checkpoint()` immediately before an undoable action.
  */
 
-import type { Circuit } from "./core/types";
+import type { Bit, Circuit } from "./core/types";
 import { createCircuit, seedIds } from "./core/model";
-import { evaluate, type SimResult } from "./core/engine";
+import { evaluate, type SimResult, type StateMap } from "./core/engine";
 import { REGISTRY } from "./core/registry";
 
 export interface AppState {
@@ -19,11 +19,17 @@ export interface AppState {
 type Listener = (state: AppState) => void;
 const listeners = new Set<Listener>();
 
+// Sequential (flip-flop) state lives here and is threaded through evaluate so the
+// engine stays pure. It persists across user edits and resets on undo/redo/load.
+let seqState: StateMap = new Map();
+
 const circuit = createCircuit();
+const initialSim = evaluate(circuit, REGISTRY, seqState);
+seqState = initialSim.state;
 const state: AppState = {
   circuit,
   selection: new Set(),
-  sim: evaluate(circuit, REGISTRY),
+  sim: initialSim,
 };
 
 // ---- undo / redo history ---------------------------------------------------
@@ -44,7 +50,20 @@ function emit(): void {
 }
 
 function resimulate(): void {
-  state.sim = evaluate(state.circuit, REGISTRY);
+  state.sim = evaluate(state.circuit, REGISTRY, seqState);
+  seqState = state.sim.state;
+}
+
+/**
+ * Advance all clocks one half-period. Silent: no updatedAt bump (autosave skips)
+ * and no history entry — clock phase is transient simulation, not a user edit.
+ */
+export function tickClock(): void {
+  const clocks = state.circuit.components.filter((c) => c.type === "clock");
+  if (!clocks.length) return;
+  for (const c of clocks) c.value = (c.value ? 0 : 1) as Bit;
+  resimulate();
+  emit();
 }
 
 /** Mutate the circuit, re-simulate, and notify. Returns the mutator's result. */
@@ -77,6 +96,7 @@ function swapTo(next: Circuit, stash: Circuit[]): void {
   next.updatedAt = new Date().toISOString(); // mark so autosave persists the result
   state.circuit = next;
   state.selection = new Set();
+  seqState = new Map(); // flip-flop state from another timeline is stale
   resimulate();
   emit();
 }
@@ -98,6 +118,7 @@ export function loadCircuit(next: Circuit): void {
   state.selection = new Set();
   past = [];
   future = [];
+  seqState = new Map();
   resimulate();
   emit();
 }

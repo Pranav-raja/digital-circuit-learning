@@ -614,6 +614,29 @@ body {
   pointer-events: none;
 }
 
+/* clock source (Phase 6) */
+.clk-body {
+  fill: var(--bg-chrome);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  cursor: grab;
+}
+.comp.is-selected .clk-body {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.clk-wave {
+  fill: none;
+  stroke: var(--ink-dim);
+  stroke-width: 2;
+  stroke-linejoin: miter;
+  pointer-events: none;
+  transition: stroke var(--t-fast) var(--ease);
+}
+.clk-wave.is-on {
+  stroke: var(--signal-high);
+}
+
 /* 7-segment display (spec §6) */
 .seg-body {
   fill: var(--bg-chrome);

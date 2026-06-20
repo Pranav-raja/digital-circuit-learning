@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createCircuit, addComponent, addInput, addOutput, addWire } from "./model";
-import { evaluate } from "./engine";
+import { evaluate, type StateMap } from "./engine";
 import { REGISTRY } from "./registry";
 import type { Bit } from "./types";
 
@@ -170,14 +170,69 @@ describe("half adder built from AND/OR/NOT", () => {
   });
 });
 
-describe("cycle handling (ADR-005)", () => {
-  it("flags the cyclic wires and returns instead of hanging", () => {
+describe("oscillation handling (ADR-005)", () => {
+  it("flags an oscillating loop (odd inversions) instead of hanging", () => {
     const c = createCircuit();
-    const n1 = addComponent(c, "not", 200, 100);
-    const n2 = addComponent(c, "not", 400, 100);
+    const n1 = addComponent(c, "not", 100, 100);
+    const n2 = addComponent(c, "not", 250, 100);
+    const n3 = addComponent(c, "not", 400, 100);
     addWire(c, { comp: n1.id, term: "out0" }, { comp: n2.id, term: "in0" });
-    addWire(c, { comp: n2.id, term: "out0" }, { comp: n1.id, term: "in0" });
+    addWire(c, { comp: n2.id, term: "out0" }, { comp: n3.id, term: "in0" });
+    addWire(c, { comp: n3.id, term: "out0" }, { comp: n1.id, term: "in0" });
     const r = evaluate(c, REGISTRY);
-    expect(r.errors.cycleWireIds.length).toBe(2);
+    expect(r.errors.cycleWireIds.length).toBeGreaterThan(0);
+  });
+});
+
+describe("sequential — D flip-flop (Phase 6)", () => {
+  it("captures D only on a rising clock edge", () => {
+    const c = createCircuit();
+    const D = addInput(c);
+    const CK = addInput(c);
+    const ff = addComponent(c, "dff", 300, 100);
+    addWire(c, { comp: D.id, term: "out0" }, { comp: ff.id, term: "d" });
+    addWire(c, { comp: CK.id, term: "out0" }, { comp: ff.id, term: "clk" });
+    let st: StateMap | undefined;
+    const q = (): Bit => {
+      const r = evaluate(c, REGISTRY, st);
+      st = r.state;
+      return (r.outputs.get(ff.id)?.q ?? 0) as Bit;
+    };
+    D.value = 1;
+    CK.value = 0;
+    expect(q()).toBe(0); // no edge yet — holds the initial 0
+    CK.value = 1;
+    expect(q()).toBe(1); // rising edge captures D=1
+    D.value = 0;
+    expect(q()).toBe(1); // clock still high — holds
+    CK.value = 0;
+    expect(q()).toBe(1); // falling edge — holds
+    CK.value = 1;
+    expect(q()).toBe(0); // rising edge captures D=0
+  });
+
+  it("divides the clock by two when Q' feeds back to D", () => {
+    const c = createCircuit();
+    const CK = addInput(c);
+    const ff = addComponent(c, "dff", 300, 100);
+    addWire(c, { comp: CK.id, term: "out0" }, { comp: ff.id, term: "clk" });
+    addWire(c, { comp: ff.id, term: "qbar" }, { comp: ff.id, term: "d" }); // self-feedback
+    let st: StateMap | undefined;
+    const ev = (): Bit => {
+      const r = evaluate(c, REGISTRY, st);
+      st = r.state;
+      return (r.outputs.get(ff.id)?.q ?? 0) as Bit;
+    };
+    CK.value = 0;
+    ev();
+    const pulse = (): Bit => {
+      CK.value = 1;
+      ev();
+      CK.value = 0;
+      return ev();
+    };
+    expect(pulse()).toBe(1);
+    expect(pulse()).toBe(0);
+    expect(pulse()).toBe(1);
   });
 });

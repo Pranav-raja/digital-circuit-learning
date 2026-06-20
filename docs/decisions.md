@@ -112,6 +112,33 @@ structure and fails with a human message, never a stack trace.
 
 ---
 
+## ADR-009 — Sequential engine via iterative settling
+**Status:** Accepted · 2026-06-20 · _Phase 6; supersedes the topo-pass in ADR-005_
+
+**Context.** Flip-flops and clocks need feedback loops, which the original
+topological pass treated as errors. The spec's stretch path: iterative settling.
+
+**Decision.** `evaluate` now settles combinational parts (Gauss-Seidel, capped at
+80 iters) with sources and sequential outputs held fixed, then sequential parts
+**commit** their state from the settled inputs (edge detection), then settle once
+more. State is threaded in/out (`prevState` → `SimResult.state`) so the function
+stays pure; the store holds it and resets it on undo/redo/load. Clocks are
+`source` parts flipped by a 700ms timer via a **silent** `tickClock()` (no
+undo entry, no autosave churn — clock phase is transient, not a user edit).
+
+**Consequences.**
+- A 2-NOT loop is now a stable bistable latch, not an error; only loops that never
+  settle (odd-inversion oscillators) are flagged. Cycle detection = "didn't settle."
+- **Self-wires are now allowed** (model no longer rejects `from.comp === to.comp`)
+  so a flip-flop's Q' → D divide-by-two works; bad combinational self-loops just
+  oscillate → flagged.
+- Sequential state is NOT persisted (clock phase / Q reset on reload) — acceptable
+  for v1; the circuit topology is what's saved.
+- New parts: `clock` (custom square-wave renderer) and `dff` (D flip-flop, default
+  gate renderer) — a new `sequential` category.
+
+---
+
 ## ADR-008 — In-app Component Guide (the manual)
 **Status:** Accepted · 2026-06-20 · _feature beyond the spec, user-requested_
 

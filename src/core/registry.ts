@@ -11,7 +11,21 @@ export type Inputs = Record<TerminalId, Bit>;
 export type Outputs = Record<TerminalId, Bit>;
 
 /** How the canvas should draw this part. Standard gates use "gate". */
-export type RenderKind = "gate" | "toggle" | "led" | "seven-seg" | "transistor" | "block";
+export type RenderKind = "gate" | "toggle" | "led" | "clock" | "seven-seg" | "transistor" | "block";
+
+/** Latch state for a sequential part, e.g. { q, lastClk } (Phase 6). */
+export type CompState = Record<string, Bit>;
+
+/**
+ * A sequential part keeps state across evaluations. The engine reads its outputs
+ * from state during settling, then COMMITs (e.g. latches on a clock edge) using
+ * the settled inputs. Both functions stay pure (state in, state out).
+ */
+export interface Sequential {
+  initial: CompState;
+  read: (state: CompState) => Outputs;
+  commit: (inputs: Inputs, state: CompState) => CompState;
+}
 
 export interface ComponentDef {
   label: string;
@@ -21,9 +35,11 @@ export interface ComponentDef {
   /** Pure logic. The engine guarantees every input key is present (default 0). */
   evaluate: (inputs: Inputs) => Outputs;
   render?: RenderKind; // default "gate"
-  /** When true the output IS the instance's `value` (an input toggle) — the
+  /** When true the output IS the instance's `value` (an input toggle / clock) — the
    * engine special-cases these rather than calling evaluate (architecture §4). */
   source?: boolean;
+  /** Sequential behavior (flip-flops). When set, the engine uses this, not evaluate. */
+  sequential?: Sequential;
   sublabel?: string; // small second line under the gate label (e.g. "2:1")
   width?: number; // override the default gate body width
   pinLabels?: Record<TerminalId, string>; // short labels drawn beside terminals
@@ -94,6 +110,15 @@ export const REGISTRY: Registry = {
     outputs: ["out0"],
     evaluate: () => ({ out0: 0 }), // never called; output comes from instance.value
   },
+  clock: {
+    label: "CLK",
+    category: "io",
+    render: "clock",
+    source: true, // like an input, but the app flips its value on a timer
+    inputs: [],
+    outputs: ["out0"],
+    evaluate: () => ({ out0: 0 }),
+  },
   output: {
     label: "OUT",
     category: "io",
@@ -147,6 +172,23 @@ export const REGISTRY: Registry = {
     evaluate: (i) => {
       const total = i.in0 + i.in1 + i.cin;
       return { sum: (total & 1) as Bit, carry: (total > 1 ? 1 : 0) as Bit };
+    },
+  },
+
+  // ---- sequential (Phase 6; uses iterative settling) ----
+  dff: {
+    label: "DFF",
+    category: "sequential",
+    width: 104,
+    inputs: ["d", "clk"],
+    outputs: ["q", "qbar"],
+    pinLabels: { d: "D", clk: "CLK", q: "Q", qbar: "Q'" },
+    evaluate: () => ({}), // sequential parts use `sequential`, not evaluate
+    sequential: {
+      initial: { q: 0, lastClk: 0 },
+      read: (s) => ({ q: s.q, qbar: (s.q ? 0 : 1) as Bit }),
+      // capture D on a rising clock edge (0 → 1); otherwise hold.
+      commit: (i, s) => ({ q: (s.lastClk === 0 && i.clk === 1 ? i.d : s.q) as Bit, lastClk: i.clk }),
     },
   },
 

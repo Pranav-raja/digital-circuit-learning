@@ -228,6 +228,26 @@ function renderSevenSeg(
   </g>`;
 }
 
+/** A clock source: a square-wave glyph whose output drives sequential parts. */
+function renderClock(c: ComponentInstance, def: ComponentDef, selected: boolean): string {
+  const { w, h } = sizeOf(def);
+  const on = c.value === 1;
+  const x0 = c.x + 10;
+  const x3 = c.x + w - 14;
+  const step = (x3 - x0) / 4;
+  const hi = c.y + 16;
+  const lo = c.y + h - 14;
+  const wave =
+    `M ${x0} ${lo} L ${x0} ${hi} L ${x0 + step} ${hi} L ${x0 + step} ${lo} ` +
+    `L ${x0 + 2 * step} ${lo} L ${x0 + 2 * step} ${hi} L ${x0 + 3 * step} ${hi} ` +
+    `L ${x0 + 3 * step} ${lo} L ${x3} ${lo}`;
+  return `<g class="comp${selected ? " is-selected" : ""}" data-id="${c.id}">
+    <rect class="clk-body" x="${c.x}" y="${c.y}" width="${w}" height="${h}" rx="6" />
+    <path class="clk-wave${on ? " is-on" : ""}" d="${wave}" />
+    ${termCircle(c, def, "out0", "out", on)}
+  </g>`;
+}
+
 function renderComponent(
   c: ComponentInstance,
   def: ComponentDef,
@@ -236,6 +256,7 @@ function renderComponent(
   inVals: Record<string, number>,
 ): string {
   if (def.render === "seven-seg") return renderSevenSeg(c, def, selected, inVals);
+  if (def.render === "clock") return renderClock(c, def, selected);
 
   const { w, h } = sizeOf(def);
   const head = `<g class="comp${selected ? " is-selected" : ""}" data-id="${c.id}">`;

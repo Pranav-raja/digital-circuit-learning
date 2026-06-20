@@ -7,7 +7,7 @@ import { initStatusBar } from "./ui/StatusBar";
 import { initTopbar } from "./ui/Topbar";
 import { initTheme } from "./ui/Theme";
 import { initGuide } from "./ui/Guide";
-import { getState, subscribe, loadCircuit, checkpoint } from "./store";
+import { getState, subscribe, loadCircuit, checkpoint, tickClock } from "./store";
 import { createAutosaver, loadCurrent } from "./storage/local";
 import { importCircuitFile } from "./storage/files";
 
@@ -44,7 +44,11 @@ const PALETTE: PaletteCategory[] = [
   {
     name: "I/O",
     open: true,
-    items: [{ label: "Input", type: "input" }, { label: "Output", type: "output" }, { label: "Clock" }],
+    items: [
+      { label: "Input", type: "input" },
+      { label: "Output", type: "output" },
+      { label: "Clock", type: "clock" },
+    ],
   },
   { name: "Display", items: [{ label: "7-segment", type: "sevenseg" }, { label: "Number" }] },
   {
@@ -60,6 +64,7 @@ const PALETTE: PaletteCategory[] = [
     name: "Selectors",
     items: [{ label: "2:1 MUX", type: "mux2" }, { label: "4:1 MUX", type: "mux4" }, { label: "Decoder" }],
   },
+  { name: "Sequential", items: [{ label: "D flip-flop", type: "dff" }] },
   { name: "Atoms", items: [{ label: "NMOS" }, { label: "PMOS" }] },
 ];
 
@@ -165,6 +170,9 @@ initGuide();
 // Phase 4 — viewport: keep the zoom readout live, and wire "Fit to content".
 setViewListener(status.setZoom);
 document.getElementById("sb-fit")?.addEventListener("click", fitToContent);
+
+// Phase 6 — the clock's heartbeat. tickClock is a no-op when no clocks exist.
+setInterval(tickClock, 700);
 
 // Phase 2 — don't-lose-my-work: autosave on every change, restore on load.
 const autosaver = createAutosaver({ onSaved: status.setSaved, onError: status.setMessage });
