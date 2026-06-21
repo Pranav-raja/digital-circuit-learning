@@ -194,8 +194,10 @@ Out of v1 scope; capture intent, don't start until 0–5 are solid.
 - [x] Guided tutorial overlay — `ui/Tutorial.ts`: a 7-step interactive tour that
       auto-advances by watching the live circuit; auto-starts on a blank board,
       replayable via the topbar "Tutorial" button.
-- [ ] Touch support (mobile is desktop-first stretch only).  ← next
-- [ ] Subcircuits: collapse a circuit into a reusable block.
+- [x] Touch support — pinch-to-zoom + two-finger/one-finger pan layered onto the
+      existing pointer events; bigger terminals on `pointer: coarse`; pointercancel
+      cleanup. One code path for mouse/pen/touch.
+- [ ] Subcircuits: collapse a circuit into a reusable block.  ← next
 - [ ] Transistor "build-an-AND-from-switches" mode (Atoms category).
 
 **Sequential slice — verification**

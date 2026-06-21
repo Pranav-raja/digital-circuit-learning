@@ -1,6 +1,6 @@
 import "./styles/tokens.css";
 import "./styles/app.css";
-import { mountCanvas, setViewListener, fitToContent } from "./canvas/Canvas";
+import { mountCanvas, setViewListener, fitToContent, zoomByStep } from "./canvas/Canvas";
 import { initInteractions } from "./canvas/interactions";
 import { initPalette } from "./ui/Palette";
 import { initStatusBar } from "./ui/StatusBar";
@@ -149,7 +149,9 @@ function shell(): string {
       <span id="sb-count">0 components · 0 wires</span>
       <div class="statusbar__spacer"></div>
       <button class="statusbar__btn" id="sb-fit" title="Fit to content">Fit</button>
+      <button class="statusbar__btn" id="sb-zoom-out" title="Zoom out" aria-label="Zoom out">&minus;</button>
       <span id="sb-zoom">100%</span>
+      <button class="statusbar__btn" id="sb-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
       <span class="statusbar__sep">·</span>
       <span id="sb-meta">not saved yet</span>
     </footer>
@@ -172,6 +174,8 @@ initGuide();
 // Phase 4 — viewport: keep the zoom readout live, and wire "Fit to content".
 setViewListener(status.setZoom);
 document.getElementById("sb-fit")?.addEventListener("click", fitToContent);
+document.getElementById("sb-zoom-in")?.addEventListener("click", () => zoomByStep(1.2));
+document.getElementById("sb-zoom-out")?.addEventListener("click", () => zoomByStep(1 / 1.2));
 
 // Phase 6 — the clock's heartbeat. tickClock is a no-op when no clocks exist.
 setInterval(tickClock, 700);

@@ -2,8 +2,10 @@
  * canvas/interactions.ts — drag-to-wire, move, toggle, select, delete, pan/zoom
  * (spec §7). Interaction is decided by WHAT you click, never a global mode (rule
  * #3): output terminal → wire, gate body → move, input → toggle, wire/empty →
- * select/deselect. Space-drag or middle-mouse pans; scroll zooms toward the cursor.
- * Listeners are delegated on the single SVG, so they survive full re-renders.
+ * select/deselect. Dragging empty space pans (mouse, pen, or finger); a tap there
+ * deselects. Wheel / two-finger trackpad scroll pans; ctrl/⌘+wheel and trackpad
+ * pinch zoom; two-finger touch pinches. One pointer-event code path serves mouse,
+ * pen, and touch. Listeners are delegated on the SVG, surviving full re-renders.
  */
 
 import type { TerminalRef } from "../core/types";
@@ -24,10 +26,24 @@ type Drag =
   | { kind: "wire"; from: TerminalRef }
   | { kind: "move"; id: string; offX: number; offY: number; moved: boolean; checkpointed: boolean }
   | { kind: "press"; id: string; sx: number; sy: number } // railed part: maybe a toggle click
-  | { kind: "pan"; lastX: number; lastY: number };
+  | { kind: "pan"; lastX: number; lastY: number; sx: number; sy: number; deselectOnTap: boolean };
 
 let drag: Drag = { kind: "none" };
 let spaceHeld = false;
+
+const TAP_SLOP = 6; // px of movement still counted as a tap (finger jitter)
+
+// Active pointers, for multi-touch. Two down → pinch-zoom + two-finger pan.
+type Vec = { x: number; y: number };
+const pointers = new Map<number, Vec>();
+let pinch: { dist: number; cx: number; cy: number } | null = null;
+
+const twoPointers = (): [Vec, Vec] => {
+  const p = [...pointers.values()];
+  return [p[0], p[1]];
+};
+const spanOf = (a: Vec, b: Vec): number => Math.hypot(a.x - b.x, a.y - b.y);
+const midOf = (a: Vec, b: Vec): Vec => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 const preview = (): SVGPathElement | null => getSvg().querySelector<SVGPathElement>("#wire-preview");
 
@@ -54,9 +70,28 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
   const svg = getSvg();
 
   svg.addEventListener("pointerdown", (e) => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Second finger down → switch to a pinch gesture; abandon any single-finger drag.
+    if (pointers.size === 2) {
+      if (drag.kind === "wire") clearPreview();
+      drag = { kind: "none" };
+      const [a, b] = twoPointers();
+      const m = midOf(a, b);
+      pinch = { dist: spanOf(a, b), cx: m.x, cy: m.y };
+      return;
+    }
+    if (pointers.size > 2) return;
+
     // Pan first: middle-mouse, or space + left-drag (rule #3 — a held modifier, not a mode).
     if (e.button === 1 || (spaceHeld && e.button === 0)) {
-      drag = { kind: "pan", lastX: e.clientX, lastY: e.clientY };
+      drag = {
+        kind: "pan",
+        lastX: e.clientX,
+        lastY: e.clientY,
+        sx: e.clientX,
+        sy: e.clientY,
+        deselectOnTap: false,
+      };
       svg.classList.add("is-panning");
       svg.setPointerCapture(e.pointerId);
       e.preventDefault();
@@ -104,10 +139,30 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
       return;
     }
 
-    select([]); // clicked empty canvas
+    // Empty canvas: drag to pan; a tap (no drag) deselects on release.
+    drag = {
+      kind: "pan",
+      lastX: e.clientX,
+      lastY: e.clientY,
+      sx: e.clientX,
+      sy: e.clientY,
+      deselectOnTap: true,
+    };
+    svg.setPointerCapture(e.pointerId);
   });
 
   svg.addEventListener("pointermove", (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size >= 2) {
+      const [a, b] = twoPointers();
+      const m = midOf(a, b);
+      const span = spanOf(a, b);
+      const ratio = pinch.dist > 0 ? span / pinch.dist : 1;
+      if (Math.abs(ratio - 1) > 0.01) zoomAt(m.x, m.y, ratio); // pinch (deadzoned) → zoom
+      panBy(m.x - pinch.cx, m.y - pinch.cy); // two-finger drag → pan
+      pinch = { dist: span, cx: m.x, cy: m.y };
+      return;
+    }
     const d = drag;
     if (d.kind === "wire") {
       drawPreview(e.clientX, e.clientY);
@@ -120,6 +175,7 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
       update((c) => moveComponent(c, d.id, pt.x - d.offX, pt.y - d.offY));
       d.moved = true;
     } else if (d.kind === "pan") {
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > TAP_SLOP) svg.classList.add("is-panning");
       panBy(e.clientX - d.lastX, e.clientY - d.lastY);
       d.lastX = e.clientX;
       d.lastY = e.clientY;
@@ -127,6 +183,8 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
   });
 
   svg.addEventListener("pointerup", (e) => {
+    pointers.delete(e.pointerId);
+    if (pinch && pointers.size < 2) pinch = null;
     const d = drag;
     if (d.kind === "wire") {
       const from = d.from;
@@ -142,13 +200,15 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
       clearPreview();
     } else if (d.kind === "press") {
       const comp = getState().circuit.components.find((c) => c.id === d.id);
-      const moved = Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 4;
+      const moved = Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > TAP_SLOP;
       if (comp?.type === "input" && !moved) {
         checkpoint();
         update((c) => toggleInput(c, d.id));
       }
     } else if (d.kind === "pan") {
       svg.classList.remove("is-panning");
+      const moved = Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > TAP_SLOP;
+      if (d.deselectOnTap && !moved) select([]); // it was a tap on empty space
     }
     drag = { kind: "none" };
     try {
@@ -158,12 +218,23 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
     }
   });
 
-  // scroll = zoom toward the cursor (spec §7)
+  // touch interrupted (e.g. a system gesture) — clean up so nothing gets stuck.
+  svg.addEventListener("pointercancel", (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (drag.kind === "wire") clearPreview();
+    if (drag.kind === "pan") svg.classList.remove("is-panning");
+    drag = { kind: "none" };
+  });
+
+  // Wheel / two-finger trackpad scroll → pan. Trackpad pinch arrives as ctrl+wheel
+  // (and Ctrl/⌘+wheel works on a mouse) → zoom toward the cursor.
   svg.addEventListener(
     "wheel",
     (e) => {
       e.preventDefault();
-      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 1 / 1.1);
+      if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.002));
+      else panBy(-e.deltaX, -e.deltaY);
     },
     { passive: false },
   );

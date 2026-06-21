@@ -584,6 +584,12 @@ body {
   stroke: var(--accent);
   fill: color-mix(in srgb, var(--accent) 18%, transparent);
 }
+/* fingers are bigger than mouse pointers — enlarge terminals on touch devices */
+@media (pointer: coarse) {
+  .term {
+    r: 10px;
+  }
+}
 
 .gate-body {
   fill: var(--bg-chrome);

@@ -95,6 +95,12 @@ export function panBy(dx: number, dy: number): void {
   commitView();
 }
 
+/** Zoom a fixed step toward the viewport center (the −/+ buttons). */
+export function zoomByStep(factor: number): void {
+  const r = svg.getBoundingClientRect();
+  zoomAt(r.left + r.width / 2, r.top + r.height / 2, factor);
+}
+
 export function zoomAt(clientX: number, clientY: number, factor: number): void {
   const before = clientToWorld(clientX, clientY);
   view.zoom = clamp(view.zoom * factor, ZOOM_MIN, ZOOM_MAX);
