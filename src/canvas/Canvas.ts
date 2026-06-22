@@ -6,7 +6,7 @@
  * traveling pulse — the signature "signal is the star" element (spec §5).
  */
 
-import type { Circuit, ComponentInstance, TerminalRef } from "../core/types";
+import type { Circuit, ComponentInstance, SubcircuitDef, TerminalRef } from "../core/types";
 import { REGISTRY, type ComponentDef } from "../core/registry";
 import { sizeOf, terminalPos, wirePath, type Pt } from "../core/geometry";
 import { getState, subscribe } from "../store";
@@ -34,6 +34,25 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v
 const esc = (s: string): string =>
   s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);
 const isPinned = (c: ComponentInstance): boolean => c.type === "input" || c.type === "output";
+
+/** Synthetic def for rendering a block instance from its captured definition. */
+function blockDef(c: ComponentInstance, subs: Map<string, SubcircuitDef>): ComponentDef | null {
+  const sd = c.subId ? subs.get(c.subId) : undefined;
+  if (!sd) return null;
+  return {
+    label: sd.name,
+    category: "selectors",
+    render: "block",
+    width: Math.max(92, sd.name.length * 9 + 30),
+    inputs: sd.inputs.map((_, i) => `in${i}`),
+    outputs: sd.outputs.map((_, i) => `out${i}`),
+    pinLabels: Object.fromEntries([
+      ...sd.inputs.map((p, i) => [`in${i}`, p.label] as const),
+      ...sd.outputs.map((p, i) => [`out${i}`, p.label] as const),
+    ]),
+    evaluate: () => ({}),
+  };
+}
 
 // ---- public API ------------------------------------------------------------
 export function mountCanvas(container: HTMLElement): void {
@@ -300,8 +319,9 @@ function renderComponent(
   const sub = def.sublabel
     ? `<text class="gate-sublabel" x="${cx}" y="${c.y + h / 2 + 9}">${esc(def.sublabel)}</text>`
     : "";
+  const bodyClass = def.render === "block" ? "block-body" : "gate-body";
   return `${head}
-    <rect class="gate-body" x="${c.x}" y="${c.y}" width="${w}" height="${h}" />
+    <rect class="${bodyClass}" x="${c.x}" y="${c.y}" width="${w}" height="${h}" />
     <text class="gate-label" x="${cx}" y="${labelY}">${esc(def.label)}</text>
     ${sub}${pins}${terms}
   </g>`;
@@ -342,8 +362,9 @@ function render(): void {
     })
     .join("");
 
+  const subs = new Map((circuit.subcircuits ?? []).map((d) => [d.id, d]));
   const part = (c: ComponentInstance): string => {
-    const def = REGISTRY[c.type];
+    const def = c.type === "sub" ? blockDef(c, subs) : REGISTRY[c.type];
     return def
       ? renderComponent(c, def, selection.has(c.id), sim.outputs.get(c.id) ?? {}, sim.inputsOf.get(c.id) ?? {})
       : "";

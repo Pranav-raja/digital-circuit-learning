@@ -7,7 +7,7 @@
 
 import type { Bit, Circuit } from "./core/types";
 import { createCircuit, seedIds } from "./core/model";
-import { evaluate, type SimResult, type StateMap } from "./core/engine";
+import { evaluate, buildSubs, type SimResult, type StateMap } from "./core/engine";
 import { REGISTRY } from "./core/registry";
 
 export interface AppState {
@@ -50,7 +50,7 @@ function emit(): void {
 }
 
 function resimulate(): void {
-  state.sim = evaluate(state.circuit, REGISTRY, seqState);
+  state.sim = evaluate(state.circuit, REGISTRY, seqState, buildSubs(state.circuit));
   seqState = state.sim.state;
 }
 
@@ -78,6 +78,15 @@ export function update<T>(mutator: (circuit: Circuit) => T): T {
 /** Change the selection only (no re-simulation, no history). */
 export function select(ids: string[]): void {
   state.selection = new Set(ids);
+  emit();
+}
+
+/** Add/remove one id from the selection (shift-click multi-select). */
+export function toggleSelect(id: string): void {
+  const next = new Set(state.selection);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  state.selection = next;
   emit();
 }
 
@@ -113,6 +122,7 @@ export function redo(): void {
 
 /** Replace the whole circuit (e.g. restore from storage). Clears history. */
 export function loadCircuit(next: Circuit): void {
+  next.subcircuits ??= []; // normalize older saves without a block library
   seedIds(next); // continue id generation past loaded ids
   state.circuit = next;
   state.selection = new Set();

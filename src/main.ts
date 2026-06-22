@@ -8,6 +8,7 @@ import { initTopbar } from "./ui/Topbar";
 import { initTheme } from "./ui/Theme";
 import { initGuide } from "./ui/Guide";
 import { initTutorial } from "./ui/Tutorial";
+import { initBlocks } from "./ui/Blocks";
 import { getState, subscribe, loadCircuit, checkpoint, tickClock } from "./store";
 import { createAutosaver, loadCurrent } from "./storage/local";
 import { importCircuitFile } from "./storage/files";
@@ -105,6 +106,7 @@ function shell(): string {
         </div>
         <button class="btn" id="tb-export">Export</button>
         <button class="btn" id="tb-import">Import</button>
+        <button class="btn" id="tb-group" title="Group selection into a block (Ctrl/⌘+G)">Group</button>
       </div>
       <div class="topbar__spacer"></div>
       <button class="btn" id="tb-tutorial" title="Take the guided tour">Tutorial</button>
@@ -118,6 +120,7 @@ function shell(): string {
           <span>Components</span>
           <button class="palette__guide" data-guide="" title="Open the component guide">${infoGlyph}<span>Guide</span></button>
         </div>
+        <div id="palette-blocks"></div>
         ${PALETTE.map(paletteCategory).join("")}
       </aside>
 
@@ -170,6 +173,7 @@ initPalette();
 initTopbar(status.setMessage);
 initTheme();
 initGuide();
+initBlocks(status.setMessage);
 
 // Phase 4 — viewport: keep the zoom readout live, and wire "Fit to content".
 setViewListener(status.setZoom);

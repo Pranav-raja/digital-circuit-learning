@@ -11,7 +11,7 @@
 import type { TerminalRef } from "../core/types";
 import { wirePath } from "../core/geometry";
 import { addWire, moveComponent, toggleInput, removeById } from "../core/model";
-import { getState, update, select, checkpoint, undo, redo } from "../store";
+import { getState, update, select, toggleSelect, checkpoint, undo, redo } from "../store";
 import {
   getSvg,
   clientToScreen,
@@ -113,6 +113,10 @@ export function initInteractions(setMessage: (msg: string) => void = () => {}): 
     const g = t.closest<SVGElement>(".comp");
     if (g) {
       const id = g.dataset.id!;
+      if (e.shiftKey) {
+        toggleSelect(id); // add/remove from the multi-selection (for grouping)
+        return;
+      }
       const comp = getState().circuit.components.find((c) => c.id === id);
       if (!comp) return;
       select([id]);

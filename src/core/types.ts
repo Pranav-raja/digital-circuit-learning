@@ -23,11 +23,12 @@ export type Category =
 /** A placed component — pure data, part of the save file. */
 export interface ComponentInstance {
   id: string; // unique within the circuit, e.g. "c1"
-  type: string; // key into REGISTRY
+  type: string; // key into REGISTRY, or "sub" for a subcircuit block
   x: number; // canvas coords, snapped to the 24px grid (gates only; rails auto-dock)
   y: number;
   label?: string; // inputs / outputs / displays show this
   value?: Bit; // ONLY meaningful for input components (the toggle state)
+  subId?: string; // for type "sub": which SubcircuitDef this block instances
   params?: Record<string, number>; // future: bit width for n-bit parts, etc.
 }
 
@@ -51,6 +52,22 @@ export interface Circuit {
   updatedAt: string; // ISO 8601
   components: ComponentInstance[];
   wires: Wire[];
+  subcircuits?: SubcircuitDef[]; // user-defined reusable blocks (Phase 6)
+}
+
+/** One pin of a block, mapping a position to an internal input/output component. */
+export interface SubcircuitPort {
+  id: string; // internal component id this pin maps to
+  label: string; // shown on the block's pin (e.g. A, SUM)
+}
+
+/** A reusable block: a captured circuit plus its external interface (Phase 6). */
+export interface SubcircuitDef {
+  id: string;
+  name: string;
+  circuit: Circuit; // the captured internals (the top-level subcircuits library is shared)
+  inputs: SubcircuitPort[]; // internal input components, in pin order → in0, in1, …
+  outputs: SubcircuitPort[]; // internal output components, in pin order → out0, out1, …
 }
 
 export const SCHEMA_VERSION = 1;

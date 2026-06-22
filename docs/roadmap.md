@@ -197,8 +197,10 @@ Out of v1 scope; capture intent, don't start until 0–5 are solid.
 - [x] Touch support — pinch-to-zoom + two-finger/one-finger pan layered onto the
       existing pointer events; bigger terminals on `pointer: coarse`; pointercancel
       cleanup. One code path for mouse/pen/touch.
-- [ ] Subcircuits: collapse a circuit into a reusable block.  ← next
-- [ ] Transistor "build-an-AND-from-switches" mode (Atoms category).
+- [x] Subcircuits: collapse a circuit into a reusable block. See [ADR-010](decisions.md).
+      Shift-click multi-select → Group (Ctrl/⌘+G) → block in "My Blocks"; engine
+      evaluates blocks recursively. 22 tests incl. a grouped half-adder.
+- [ ] Transistor "build-an-AND-from-switches" mode (Atoms category).  ← last
 
 **Sequential slice — verification**
 - ✅ Automated: typecheck, lint, 21 tests, build — all clean.

@@ -325,6 +325,12 @@ body {
   cursor: default;
   opacity: 0.55;
 }
+.cat__hint {
+  padding: 0 var(--sp-2) var(--sp-1);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
 .chip.is-soon:hover {
   border-color: var(--hairline);
   color: var(--ink-dim);
@@ -688,6 +694,20 @@ body {
 }
 .comp.is-selected .gate-body,
 .comp.is-selected .io-body {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* a subcircuit block (Phase 6): rounded corners read it as a composite, vs the
+ * angular primitive gates */
+.block-body {
+  fill: var(--bg-chrome);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  rx: 7px;
+  cursor: grab;
+}
+.comp.is-selected .block-body {
   stroke: var(--accent);
   stroke-width: 2;
 }

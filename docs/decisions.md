@@ -112,6 +112,36 @@ structure and fails with a human message, never a stack trace.
 
 ---
 
+## ADR-010 — Subcircuits as captured circuits + recursive evaluation
+**Status:** Accepted · 2026-06-21 · _Phase 6_
+
+**Context.** "Collapse a circuit into a reusable block" (spec §12). Needs a data
+model for blocks, an engine that evaluates them, and a way to define/place them.
+
+**Decision.** A `SubcircuitDef` = a captured `Circuit` plus ordered input/output
+**ports** (the internal `input`/`output` components become the block's pins). Defs
+live in a per-circuit library `Circuit.subcircuits` (so a saved file is
+self-contained). A block instance is a `ComponentInstance` with `type: "sub"` and
+`subId`. The engine resolves a synthetic `ComponentDef` for blocks (`in0…`, `out0…`)
+whose `evaluate` recursively runs the captured internals (driving internal inputs,
+reading internal outputs), depth-capped at 24. Grouping is **non-destructive and
+boundary-aware**: pins come from the selection's input/output components AND from
+every wire crossing the boundary (fan-in/out merged into one pin per external
+terminal, realised as synthetic internal I/O components), and those external wires
+are RECONNECTED to the block — so the pin count always matches the real interface
+and nothing is silently dropped. Multi-select is shift-click; the action is
+`Ctrl/⌘+G` / a Group button; blocks appear in a "My Blocks" palette section.
+
+**Consequences.**
+- `addWire` and the renderer must resolve block terminals from the library, not
+  `REGISTRY` (the bug the block test caught).
+- Blocks render rounded (composite) vs. angular primitives.
+- v1 limitation: a block's internal flip-flops don't retain state across parent
+  ticks (sub-eval is stateless per call) — combinational blocks are the use case.
+  No ungroup/expand yet. Both noted as future work.
+
+---
+
 ## ADR-009 — Sequential engine via iterative settling
 **Status:** Accepted · 2026-06-20 · _Phase 6; supersedes the topo-pass in ADR-005_
 

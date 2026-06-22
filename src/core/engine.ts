@@ -1,19 +1,17 @@
 /*
  * core/engine.ts — the pure simulation (spec §9, ADR-005). Pure, deterministic,
- * DOM-free. Phase 6 replaced the one-shot topological pass with ITERATIVE
- * SETTLING so feedback loops (flip-flops) work:
+ * DOM-free. Iterative SETTLING (Phase 6) so feedback loops (flip-flops) work:
  *   1. sources (inputs/clocks) and sequential outputs are fixed for the pass;
- *   2. combinational gates are re-evaluated until their outputs stop changing
- *      (or a step cap is hit → the wires that never settle are flagged);
- *   3. sequential parts then COMMIT their state from the settled inputs (e.g. a
- *      flip-flop latches D on a clock edge), and we settle once more.
- * State is threaded in/out so the function stays pure (architecture §9).
+ *   2. combinational gates re-evaluate until stable (capped → unstable wires flag);
+ *   3. sequential parts COMMIT state from settled inputs (edge detection), settle again.
+ * Subcircuit blocks (type "sub") are combinational from the caller's view: their
+ * evaluate recursively runs the captured internal circuit (Phase 6). State is
+ * threaded in/out so the function stays pure (architecture §9).
  */
 
-import type { Bit, Circuit, ComponentInstance, TerminalRef } from "./types";
-import type { Inputs, Outputs, Registry } from "./registry";
+import type { Bit, Circuit, ComponentInstance, SubcircuitDef, TerminalRef } from "./types";
+import type { ComponentDef, Inputs, Outputs, Registry } from "./registry";
 
-/** Per-instance latch state for sequential parts (e.g. { q, lastClk }). */
 export type CompState = Record<string, Bit>;
 export type StateMap = Map<string, CompState>;
 
@@ -22,20 +20,87 @@ export interface SimResult {
   inputsOf: Map<string, Inputs>;
   wireValues: Map<string, Bit>;
   errors: { cycleWireIds: string[] };
-  state: StateMap; // next sequential state, fed back in on the following call
+  state: StateMap;
 }
 
 const MAX_ITERS = 80;
+const MAX_DEPTH = 24; // subcircuit nesting guard (also stops accidental recursion)
 const key = (ref: TerminalRef): string => `${ref.comp}:${ref.term}`;
 
-/** Equal on every key present in `next` (the freshly computed output set). */
+/** Index a circuit's reusable blocks by id, for the engine + recursion. */
+export const buildSubs = (circuit: Circuit): Map<string, SubcircuitDef> =>
+  new Map((circuit.subcircuits ?? []).map((d) => [d.id, d]));
+
 function sameOutputs(prev: Outputs, next: Outputs): boolean {
   for (const k in next) if (prev[k] !== next[k]) return false;
   return true;
 }
 
-export function evaluate(circuit: Circuit, registry: Registry, prevState?: StateMap): SimResult {
+/** Run a block's internals: drive its input components, read its output components. */
+function evalSub(
+  sd: SubcircuitDef,
+  ins: Inputs,
+  registry: Registry,
+  subs: Map<string, SubcircuitDef>,
+  depth: number,
+): Outputs {
+  if (depth > MAX_DEPTH) return {};
+  const inputVal = new Map<string, Bit>();
+  sd.inputs.forEach((p, i) => inputVal.set(p.id, (ins[`in${i}`] ?? 0) as Bit));
+  const view: Circuit = {
+    ...sd.circuit,
+    components: sd.circuit.components.map((c) =>
+      inputVal.has(c.id) ? { ...c, value: inputVal.get(c.id) } : c,
+    ),
+  };
+  const r = evaluate(view, registry, undefined, subs, depth);
+  const out: Outputs = {};
+  sd.outputs.forEach((p, i) => {
+    out[`out${i}`] = (r.inputsOf.get(p.id)?.in0 ?? 0) as Bit;
+  });
+  return out;
+}
+
+export function evaluate(
+  circuit: Circuit,
+  registry: Registry,
+  prevState?: StateMap,
+  subs?: Map<string, SubcircuitDef>,
+  depth = 0,
+): SimResult {
+  if (depth > MAX_DEPTH) {
+    return {
+      outputs: new Map(),
+      inputsOf: new Map(),
+      wireValues: new Map(),
+      errors: { cycleWireIds: [] },
+      state: new Map(),
+    };
+  }
+
+  const subMap = subs ?? buildSubs(circuit);
   const byId = new Map(circuit.components.map((c) => [c.id, c]));
+
+  // Resolve a component's definition: registry entry, or a synthetic def for a block.
+  const synthCache = new Map<string, ComponentDef>();
+  const defOf = (c: ComponentInstance): ComponentDef | undefined => {
+    if (c.type !== "sub") return registry[c.type];
+    const sd = c.subId ? subMap.get(c.subId) : undefined;
+    if (!sd) return undefined;
+    let d = synthCache.get(sd.id);
+    if (!d) {
+      d = {
+        label: sd.name,
+        category: "selectors",
+        render: "block",
+        inputs: sd.inputs.map((_, i) => `in${i}`),
+        outputs: sd.outputs.map((_, i) => `out${i}`),
+        evaluate: (ins) => evalSub(sd, ins, registry, subMap, depth + 1),
+      };
+      synthCache.set(sd.id, d);
+    }
+    return d;
+  };
 
   // the single wire feeding each input terminal (model enforces one-per-input)
   const feed = new Map<string, TerminalRef>();
@@ -47,10 +112,8 @@ export function evaluate(circuit: Circuit, registry: Registry, prevState?: State
   const inputsOf = new Map<string, Inputs>();
   const state: StateMap = new Map();
 
-  // Seed: sources output their value; sequential parts output their stored state;
-  // combinational parts start empty and get computed during settling.
   for (const c of circuit.components) {
-    const def = registry[c.type];
+    const def = defOf(c);
     if (!def) {
       outputs.set(c.id, {});
     } else if (def.source) {
@@ -75,7 +138,7 @@ export function evaluate(circuit: Circuit, registry: Registry, prevState?: State
   };
 
   const combos = circuit.components.filter((c) => {
-    const def = registry[c.type];
+    const def = defOf(c);
     return def && !def.source && !def.sequential;
   });
 
@@ -84,7 +147,7 @@ export function evaluate(circuit: Circuit, registry: Registry, prevState?: State
     for (let i = 0; i < MAX_ITERS; i++) {
       let changed = false;
       for (const c of combos) {
-        const def = registry[c.type]!;
+        const def = defOf(c)!;
         const ins = gatherInputs(c, def);
         inputsOf.set(c.id, ins);
         const out = def.evaluate(ins);
@@ -95,11 +158,10 @@ export function evaluate(circuit: Circuit, registry: Registry, prevState?: State
       }
       if (!changed) return new Set();
     }
-    // Never settled → an oscillator. Two more passes find the still-toggling parts.
     const osc = new Set<string>();
     for (let i = 0; i < 2; i++) {
       for (const c of combos) {
-        const def = registry[c.type]!;
+        const def = defOf(c)!;
         const ins = gatherInputs(c, def);
         inputsOf.set(c.id, ins);
         const out = def.evaluate(ins);
@@ -114,10 +176,9 @@ export function evaluate(circuit: Circuit, registry: Registry, prevState?: State
 
   const oscillating = settle();
 
-  // Commit sequential state from the settled inputs (edge detection lives here).
   let stateChanged = false;
   for (const c of circuit.components) {
-    const def = registry[c.type];
+    const def = defOf(c);
     if (!def?.sequential) continue;
     const prev = state.get(c.id)!;
     const ins = gatherInputs(c, def);
@@ -133,9 +194,8 @@ export function evaluate(circuit: Circuit, registry: Registry, prevState?: State
   }
   if (stateChanged) for (const id of settle()) oscillating.add(id);
 
-  // Resolve input values for every non-source part (for LEDs, displays, etc.).
   for (const c of circuit.components) {
-    const def = registry[c.type];
+    const def = defOf(c);
     if (def && !def.source) inputsOf.set(c.id, gatherInputs(c, def));
   }
 

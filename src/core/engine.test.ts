@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createCircuit, addComponent, addInput, addOutput, addWire } from "./model";
-import { evaluate, type StateMap } from "./engine";
+import { createCircuit, addComponent, addInput, addOutput, addWire, groupSelection } from "./model";
+import { evaluate, buildSubs, type StateMap } from "./engine";
 import { REGISTRY } from "./registry";
 import type { Bit } from "./types";
 
@@ -181,6 +181,100 @@ describe("oscillation handling (ADR-005)", () => {
     addWire(c, { comp: n3.id, term: "out0" }, { comp: n1.id, term: "in0" });
     const r = evaluate(c, REGISTRY);
     expect(r.errors.cycleWireIds.length).toBeGreaterThan(0);
+  });
+});
+
+describe("subcircuits / blocks (Phase 6)", () => {
+  it("a grouped half-adder block computes like its internals", () => {
+    const c = createCircuit();
+    const A = addInput(c);
+    const B = addInput(c);
+    const xor1 = addComponent(c, "xor", 300, 80);
+    const and1 = addComponent(c, "and", 300, 200);
+    const SUM = addOutput(c); // becomes out0
+    const CARRY = addOutput(c); // becomes out1
+    const out = (id: string) => ({ comp: id, term: "out0" });
+    addWire(c, out(A.id), { comp: xor1.id, term: "in0" });
+    addWire(c, out(B.id), { comp: xor1.id, term: "in1" });
+    addWire(c, out(A.id), { comp: and1.id, term: "in0" });
+    addWire(c, out(B.id), { comp: and1.id, term: "in1" });
+    addWire(c, out(xor1.id), { comp: SUM.id, term: "in0" });
+    addWire(c, out(and1.id), { comp: CARRY.id, term: "in0" });
+
+    const res = groupSelection(
+      c,
+      c.components.map((x) => x.id),
+      "HalfAdder",
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(c.components.filter((x) => x.type === "sub").length).toBe(1);
+
+    // wire fresh I/O to the block (in0=A, in1=B; out0=SUM, out1=CARRY)
+    const X = addInput(c);
+    const Y = addInput(c);
+    const oS = addOutput(c);
+    const oC = addOutput(c);
+    addWire(c, out(X.id), { comp: res.instance.id, term: "in0" });
+    addWire(c, out(Y.id), { comp: res.instance.id, term: "in1" });
+    addWire(c, { comp: res.instance.id, term: "out0" }, { comp: oS.id, term: "in0" });
+    addWire(c, { comp: res.instance.id, term: "out1" }, { comp: oC.id, term: "in0" });
+
+    const subs = buildSubs(c);
+    const run = (a: Bit, b: Bit): { sum: Bit; carry: Bit } => {
+      X.value = a;
+      Y.value = b;
+      const r = evaluate(c, REGISTRY, undefined, subs);
+      return {
+        sum: (r.inputsOf.get(oS.id)?.in0 ?? 0) as Bit,
+        carry: (r.inputsOf.get(oC.id)?.in0 ?? 0) as Bit,
+      };
+    };
+    expect(run(0, 0)).toEqual({ sum: 0, carry: 0 });
+    expect(run(0, 1)).toEqual({ sum: 1, carry: 0 });
+    expect(run(1, 0)).toEqual({ sum: 1, carry: 0 });
+    expect(run(1, 1)).toEqual({ sum: 0, carry: 1 });
+  });
+
+  it("grouping only the gates auto-creates pins from the boundary and reconnects", () => {
+    const c = createCircuit();
+    const A = addInput(c);
+    const B = addInput(c);
+    const xor1 = addComponent(c, "xor", 300, 80);
+    const and1 = addComponent(c, "and", 300, 200);
+    const SUM = addOutput(c);
+    const CARRY = addOutput(c);
+    const out = (id: string) => ({ comp: id, term: "out0" });
+    addWire(c, out(A.id), { comp: xor1.id, term: "in0" }); // boundary in: A → xor (in0 pin)
+    addWire(c, out(B.id), { comp: xor1.id, term: "in1" }); // boundary in: B → xor (in1 pin)
+    addWire(c, out(A.id), { comp: and1.id, term: "in0" }); // A fans into the block (same pin)
+    addWire(c, out(B.id), { comp: and1.id, term: "in1" });
+    addWire(c, out(xor1.id), { comp: SUM.id, term: "in0" }); // boundary out: xor → SUM (out0)
+    addWire(c, out(and1.id), { comp: CARRY.id, term: "in0" }); // boundary out: and → CARRY (out1)
+
+    // group ONLY the two gates
+    const res = groupSelection(c, [xor1.id, and1.id], "HA-core");
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const block = c.components.find((x) => x.id === res.instance.id)!;
+    const def = c.subcircuits!.find((d) => d.id === block.subId)!;
+    expect(def.inputs.length).toBe(2); // A, B (fan-in merged to one pin each)
+    expect(def.outputs.length).toBe(2); // SUM-source, CARRY-source
+
+    // A and B still feed the block; SUM/CARRY still driven by it
+    const subs = buildSubs(c);
+    const run = (a: Bit, b: Bit): { s: Bit; cy: Bit } => {
+      A.value = a;
+      B.value = b;
+      const r = evaluate(c, REGISTRY, undefined, subs);
+      return {
+        s: (r.inputsOf.get(SUM.id)?.in0 ?? 0) as Bit,
+        cy: (r.inputsOf.get(CARRY.id)?.in0 ?? 0) as Bit,
+      };
+    };
+    expect(run(1, 1)).toEqual({ s: 0, cy: 1 });
+    expect(run(1, 0)).toEqual({ s: 1, cy: 0 });
+    expect(run(0, 0)).toEqual({ s: 0, cy: 0 });
   });
 });
 
