@@ -369,6 +369,15 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+/* delete (×) variant of the segmented chip button — turns red on hover */
+.chip-del {
+  font-size: var(--fs-md);
+  line-height: 1;
+}
+.chip-del:hover {
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
 
 /* ============================================== board: rail bands + canvas */
 .board-area {

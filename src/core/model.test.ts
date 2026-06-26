@@ -11,9 +11,23 @@ import {
   addOutput,
   addWire,
   removeComponent,
+  groupSelection,
+  deleteSubcircuit,
   validateCircuit,
 } from "./model";
 import { SCHEMA_VERSION } from "./types";
+
+/** Build a tiny block (NOT gate wrapped) and return its def id. */
+function makeBlock(c: ReturnType<typeof createCircuit>, name: string): string {
+  const a = addInput(c);
+  const g = addComponent(c, "not", 200, 100);
+  const o = addOutput(c);
+  addWire(c, { comp: a.id, term: "out0" }, { comp: g.id, term: "in0" });
+  addWire(c, { comp: g.id, term: "out0" }, { comp: o.id, term: "in0" });
+  const res = groupSelection(c, [a.id, g.id, o.id], name);
+  if (!res.ok) throw new Error("group failed");
+  return c.subcircuits!.find((d) => d.name === name)!.id;
+}
 
 describe("save/load round-trip", () => {
   it("survives JSON.stringify → parse → validate unchanged", () => {
@@ -44,6 +58,31 @@ describe("validateCircuit", () => {
     const res = validateCircuit(future);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/newer version/i);
+  });
+});
+
+describe("deleting blocks (Phase 6)", () => {
+  it("removes the block and its instances on the board", () => {
+    const c = createCircuit();
+    const id = makeBlock(c, "Inv"); // grouping leaves one instance on the board
+    expect(c.components.filter((x) => x.subId === id).length).toBe(1);
+    const res = deleteSubcircuit(c, id);
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.removedInstances).toBe(1);
+    expect(c.subcircuits!.some((d) => d.id === id)).toBe(false);
+    expect(c.components.some((x) => x.subId === id)).toBe(false);
+  });
+
+  it("refuses to delete a block nested inside another block", () => {
+    const c = createCircuit();
+    const innerId = makeBlock(c, "Inner"); // one Inner instance on the board
+    // wrap that instance into an outer block → Outer's def contains an Inner instance
+    const inst = c.components.find((x) => x.subId === innerId)!;
+    const res = groupSelection(c, [inst.id], "Outer");
+    expect(res.ok).toBe(true);
+    const del = deleteSubcircuit(c, innerId);
+    expect(del.ok).toBe(false);
+    if (!del.ok) expect(del.reason).toMatch(/inside another block/i);
   });
 });
 

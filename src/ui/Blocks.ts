@@ -6,7 +6,7 @@
  */
 
 import { getState, subscribe, update, checkpoint, select } from "../store";
-import { groupSelection, addSubInstance } from "../core/model";
+import { groupSelection, addSubInstance, deleteSubcircuit } from "../core/model";
 import { centerWorld } from "../canvas/Canvas";
 
 const esc = (s: string): string =>
@@ -23,7 +23,10 @@ export function initBlocks(setMessage: (msg: string) => void): void {
       ? defs
           .map(
             (d) =>
-              `<span class="chip-row"><button class="chip" data-sub="${d.id}" title="Place ${esc(d.name)}">${esc(d.name)}</button></span>`,
+              `<span class="chip-row">
+                <button class="chip" data-sub="${d.id}" title="Place ${esc(d.name)}">${esc(d.name)}</button>
+                <button class="chip-info chip-del" data-del-sub="${d.id}" title="Delete ${esc(d.name)}" aria-label="Delete ${esc(d.name)}">&times;</button>
+              </span>`,
           )
           .join("")
       : `<span class="cat__hint">Select parts (shift-click), then Group to make a reusable block.</span>`;
@@ -33,8 +36,22 @@ export function initBlocks(setMessage: (msg: string) => void): void {
   subscribe(render);
   render();
 
-  // place a block instance at the viewport center
   host.addEventListener("click", (e) => {
+    // delete a block (and its instances on the board)
+    const del = (e.target as Element).closest<HTMLElement>("[data-del-sub]");
+    if (del) {
+      checkpoint();
+      const res = update((c) => deleteSubcircuit(c, del.dataset.delSub!));
+      setMessage(
+        res.ok
+          ? res.removedInstances
+            ? `Block deleted (${res.removedInstances} on the board removed).`
+            : "Block deleted."
+          : res.reason,
+      );
+      return;
+    }
+    // place a block instance at the viewport center
     const b = (e.target as Element).closest<HTMLElement>("[data-sub]");
     if (!b) return;
     const ctr = centerWorld();

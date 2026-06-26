@@ -252,6 +252,30 @@ export function groupSelection(circuit: Circuit, ids: string[], name: string): G
   return { ok: true, instance, dropped: 0 };
 }
 
+export type DeleteSubResult =
+  | { ok: true; removedInstances: number }
+  | { ok: false; reason: string };
+
+/**
+ * Delete a block definition and every instance of it on the board (undoable via
+ * the caller's checkpoint). Refused if the block is nested inside another block,
+ * which would leave that block broken.
+ */
+export function deleteSubcircuit(circuit: Circuit, defId: string): DeleteSubResult {
+  const defs = circuit.subcircuits ?? [];
+  if (!defs.some((d) => d.id === defId)) return { ok: false, reason: "That block is already gone." };
+
+  const nested = defs.some(
+    (d) => d.id !== defId && d.circuit.components.some((x) => x.type === "sub" && x.subId === defId),
+  );
+  if (nested) return { ok: false, reason: "That block is used inside another block." };
+
+  const instances = circuit.components.filter((c) => c.type === "sub" && c.subId === defId);
+  for (const inst of instances) removeComponent(circuit, inst.id);
+  circuit.subcircuits = defs.filter((d) => d.id !== defId);
+  return { ok: true, removedInstances: instances.length };
+}
+
 // ---- validation (used by file import in Phase 3) ---------------------------
 export type ValidateResult = { ok: true; circuit: Circuit } | { ok: false; error: string };
 

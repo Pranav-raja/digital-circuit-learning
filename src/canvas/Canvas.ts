@@ -93,10 +93,18 @@ export function centerWorld(): Pt {
   return clientToWorld(r.left + r.width / 2, r.top + r.height / 2);
 }
 
+const subsOf = (): Map<string, SubcircuitDef> =>
+  new Map((getState().circuit.subcircuits ?? []).map((d) => [d.id, d]));
+
+/** Resolve a component's shape — registry entry, or a synthetic def for a block. */
+function defOfComp(c: ComponentInstance): ComponentDef | null {
+  return c.type === "sub" ? blockDef(c, subsOf()) : (REGISTRY[c.type] ?? null);
+}
+
 /** Screen position of a terminal — pinned parts as-is, world parts transformed. */
 export function terminalScreen(ref: TerminalRef): Pt | null {
   const c = getState().circuit.components.find((x) => x.id === ref.comp);
-  const def = c && REGISTRY[c.type];
+  const def = c ? defOfComp(c) : null;
   if (!c || !def) return null;
   const local = terminalPos(c, def, ref.term);
   return isPinned(c) ? local : toScreen(local);
